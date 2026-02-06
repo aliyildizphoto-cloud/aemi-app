@@ -92,112 +92,114 @@
         <p class="text-red-400/70 text-sm mt-4 max-w-xs font-mono border-t border-red-500/30 pt-4">Güvenlik protokolü nedeniyle giriş reddedildi. Lütfen geçerli bir müşteri kodu kullanın.</p>
     </div>
 
-    <script>
-        const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
-        const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
-        const aemi = supabase.createClient(SB_URL, SB_KEY);
-        const urlParams = new URLSearchParams(window.location.search);
-        const cID = urlParams.get('client');
-        let leafletMap = null;
+<script>
+    // --- AYARLAR ---
+    const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
+    const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
+    const aemi = supabase.createClient(SB_URL, SB_KEY);
+    const urlParams = new URLSearchParams(window.location.search);
+    const cID = urlParams.get('client');
+    let leafletMap = null;
 
-        async function init() {
-            if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
-            document.getElementById('main-content').classList.remove('hidden');
+    async function init() {
+        if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
+        document.getElementById('main-content').classList.remove('hidden');
+        
+        try {
+            const logoCont = document.getElementById('logo-container');
             
-            try {
-                // Admin veya Müşteri Ayarı
-                const logoCont = document.getElementById('logo-container');
-                if (cID !== 'admin') {
-                    const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
-                    if(client) {
-                        document.getElementById('client-title').innerText = client.name + " | KURUMSAL PORTAL";
-                        if(client.logo_url) {
-                             logoCont.innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1 filter drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">`;
-                        } else {
-                             logoCont.innerHTML = `<span class="text-3xl">🏢</span>`;
-                        }
+            // 1. Müşteri Bilgisi Sorgusu (Sütun adını client_name yaptık)
+            if (cID !== 'admin') {
+                const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
+                if(client) {
+                    document.getElementById('client-title').innerText = client.client_name + " | KURUMSAL PORTAL";
+                    if(client.logo_url) {
+                        logoCont.innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1">`;
+                    } else {
+                        logoCont.innerHTML = `<span class="text-3xl">🏢</span>`;
                     }
-                } else {
-                    document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
-                    // Admin için kendi logonun görselini buraya koyabilirsin
-                    logoCont.innerHTML = `<h1 class="text-sky-500 font-black text-xs text-center leading-tight">AEMI<br>TECH</h1>`;
                 }
-
-                let query = aemi.from('tags').select('*, tag_data(*), clients(name)');
-                if (cID !== 'admin') { query = query.eq('client_id', cID); }
-
-                const { data: tags, error } = await query;
-                if (error) throw error;
-
-                if (!tags || tags.length === 0) {
-                    document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-12 text-center text-slate-500 font-bold uppercase tracking-[0.2em] font-mono border-2 border-dashed border-slate-700 rounded-3xl m-4">Kayıtlı Endüstriyel Varlık Bulunamadı</td></tr>';
-                    document.getElementById('stat-total').innerText = "0";
-                    return;
-                }
-                renderTable(tags);
-            } catch (e) {
-                console.error("Hata:", e);
-                document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400 font-mono">Sistem Hatası: ${e.message}</td></tr>`;
+            } else {
+                document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
+                logoCont.innerHTML = `<h1 class="text-sky-500 font-black text-xs text-center leading-tight">AEMI<br>TECH</h1>`;
             }
-        }
 
-        function renderTable(tags) {
-            const list = document.getElementById('tag-list');
-            list.innerHTML = '';
-            document.getElementById('stat-total').innerText = tags.length;
-            tags.forEach(tag => {
-                const attr = tag.tag_data[0]?.attributes || {};
-                const gps = attr.gps_location || "";
-                const clientName = tag.clients?.name || "Bilinmiyor";
-                const isActive = tag.status === 'ACTIVE';
+            // 2. Ana Veri Sorgusu (Join kısmını client_name olarak düzelttik)
+            let query = aemi.from('tags').select('*, tag_data(*), clients(client_name)');
+            if (cID !== 'admin') { query = query.eq('client_id', cID); }
 
-                list.innerHTML += `
-                    <tr class="tech-row transition-all group">
-                        <td class="p-6">
-                            <span class="text-sky-400 font-mono font-black text-lg drop-shadow-[0_0_5px_rgba(14,165,233,0.5)]">${tag.tag_id}</span><br>
-                            <span class="text-slate-400 text-xs font-sans tracking-wider">${attr.asset_name || 'Tanımsız Cihaz'}</span>
-                        </td>
-                        <td class="p-6 text-center">
-                            <div class="inline-flex items-center px-4 py-2 rounded-xl border ${isActive ? 'bg-green-500/10 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800/50 border-slate-600 text-slate-500'}">
-                                <span class="w-2 h-2 rounded-full mr-2 ${isActive ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}"></span>
-                                <span class="text-[9px] font-bold uppercase tracking-widest">${tag.status}</span>
-                            </div>
-                        </td>
-                        <td class="p-6 text-sky-300/70 text-xs font-mono">${clientName}</td>
-                        <td class="p-6 text-right">
-                            <div class="flex justify-end items-center gap-3">
-                                ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl hover:bg-sky-500/30 hover:shadow-[0_0_15px_rgba(14,165,233,0.5)] transition-all group" title="Konumu Göster"><span class="group-hover:scale-125 inline-block transition-transform">🌍</span></button>` : ''}
-                                <button onclick="resetItem('${tag.tag_id}')" class="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl hover:bg-orange-500/30 hover:shadow-[0_0_15px_rgba(249,115,22,0.5)] transition-all group" title="Sıfırla"><span class="group-hover:rotate-180 inline-block transition-transform duration-500">🔄</span></button>
-                                <button onclick="editName('${tag.tag_id}', '${attr.asset_name || ''}')" class="p-3 bg-slate-700/30 border border-slate-600 rounded-xl hover:bg-sky-500/20 hover:border-sky-500/50 transition-all" title="Düzenle">✍️</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
+            const { data: tags, error } = await query;
+            if (error) throw error;
 
-        function showMap(gps, name) {
-            const modal = document.getElementById('map-modal');
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            document.body.classList.add('modal-active');
-            document.getElementById('modal-title').innerText = name;
-            document.getElementById('modal-coords').innerText = gps;
-            const [lat, lng] = gps.split(',').map(Number);
-            setTimeout(() => {
-                if (!leafletMap) {
-                    leafletMap = L.map('item-map').setView([lat, lng], 15);
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution: '© OpenStreetMap'}).addTo(leafletMap);
-                } else { leafletMap.setView([lat, lng], 15); }
-                L.marker([lat, lng]).addTo(leafletMap).bindPopup(`<b class="text-sky-500">${name}</b>`).openPopup();
-            }, 200);
+            if (!tags || tags.length === 0) {
+                document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-12 text-center text-slate-500 font-bold uppercase tracking-[0.2em] font-mono border-2 border-dashed border-slate-700 rounded-3xl m-4">Kayıtlı Varlık Bulunamadı</td></tr>';
+                document.getElementById('stat-total').innerText = "0";
+                return;
+            }
+            renderTable(tags);
+        } catch (e) {
+            console.error("Hata:", e);
+            document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400 font-mono">Sistem Hatası: ${e.message}</td></tr>`;
         }
-        function closeMap() {
-            document.getElementById('map-modal').classList.add('opacity-0', 'pointer-events-none');
-            document.body.classList.remove('modal-active');
-        }
-        async function resetItem(id) { if(!confirm("⚠️ DİKKAT: " + id + " cihazı fabrika ayarlarına döndürülecek. Onaylıyor musunuz?")) return; await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }
-        async function editName(id, old) { const n = prompt("Yeni Cihaz Adı:", old); if(!n) return; const { data: d } = await aemi.from('tag_data').select('*').eq('tag_id', id).single(); const newAttr = d ? { ...d.attributes, asset_name: n } : { asset_name: n }; await aemi.from('tag_data').update({ attributes: newAttr }).eq('tag_id', id); location.reload(); }
-        init();
-    </script>
+    }
+
+    function renderTable(tags) {
+        const list = document.getElementById('tag-list');
+        list.innerHTML = '';
+        document.getElementById('stat-total').innerText = tags.length;
+        
+        tags.forEach(tag => {
+            const attr = tag.tag_data[0]?.attributes || {};
+            const gps = attr.gps_location || "";
+            // Burada da client_name kullanıyoruz
+            const clientName = tag.clients?.client_name || "Bilinmiyor";
+            const isActive = tag.status === 'ACTIVE';
+
+            list.innerHTML += `
+                <tr class="tech-row transition-all group">
+                    <td class="p-6">
+                        <span class="text-sky-400 font-mono font-black text-lg drop-shadow-[0_0_5px_rgba(14,165,233,0.5)]">${tag.tag_id}</span><br>
+                        <span class="text-slate-400 text-xs font-sans tracking-wider">${attr.asset_name || 'Tanımsız Cihaz'}</span>
+                    </td>
+                    <td class="p-6 text-center">
+                        <div class="inline-flex items-center px-4 py-2 rounded-xl border ${isActive ? 'bg-green-500/10 border-green-500/50 text-green-400' : 'bg-slate-800/50 border-slate-600 text-slate-500'}">
+                            <span class="w-2 h-2 rounded-full mr-2 ${isActive ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}"></span>
+                            <span class="text-[9px] font-bold uppercase tracking-widest">${tag.status}</span>
+                        </div>
+                    </td>
+                    <td class="p-6 text-sky-300/70 text-xs font-mono">${clientName}</td>
+                    <td class="p-6 text-right">
+                        <div class="flex justify-end items-center gap-3">
+                            ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
+                            <button onclick="resetItem('${tag.tag_id}')" class="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl hover:bg-orange-500/30 transition-all">🔄</button>
+                            <button onclick="editName('${tag.tag_id}', '${attr.asset_name || ''}')" class="p-3 bg-slate-700/30 border border-slate-600 rounded-xl hover:bg-sky-500/20 transition-all">✍️</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // Harita ve diğer fonksiyonlar (Olduğu gibi kalıyor)
+    function showMap(gps, name) {
+        const modal = document.getElementById('map-modal');
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.classList.add('modal-active');
+        document.getElementById('modal-title').innerText = name;
+        document.getElementById('modal-coords').innerText = gps;
+        const [lat, lng] = gps.split(',').map(Number);
+        setTimeout(() => {
+            if (!leafletMap) {
+                leafletMap = L.map('item-map').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
+            } else { leafletMap.setView([lat, lng], 15); }
+            L.marker([lat, lng]).addTo(leafletMap).bindPopup(name).openPopup();
+        }, 200);
+    }
+    function closeMap() { document.getElementById('map-modal').classList.add('opacity-0', 'pointer-events-none'); document.body.classList.remove('modal-active'); }
+    async function resetItem(id) { if(!confirm("Sıfırlansın mı?")) return; await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }
+    async function editName(id, old) { const n = prompt("Yeni Ad:", old); if(!n) return; const { data: d } = await aemi.from('tag_data').select('*').eq('tag_id', id).single(); await aemi.from('tag_data').update({ attributes: { ...d.attributes, asset_name: n } }).eq('tag_id', id); location.reload(); }
+    init();
+</script>
 </body>
 </html>
