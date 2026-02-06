@@ -75,19 +75,25 @@
     </div>
 
     <script>
-	const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
-        const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
-        const aemi = supabase.createClient(SB_URL, SB_KEY);
+    // --- AYARLAR ---
+    const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
+    const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
+    const aemi = supabase.createClient(SB_URL, SB_KEY);
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const cID = urlParams.get('client');
-        let leafletMap = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const cID = urlParams.get('client'); 
+    let leafletMap = null;
 
-        async function init() {
-            if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
-            document.getElementById('main-content').classList.remove('hidden');
-            
-            // 1. Logo ve Müşteri İsmi Çek
+    async function init() {
+        // 1. Yetki Kontrolü
+        if (!cID) { 
+            document.getElementById('error-screen').classList.remove('hidden'); 
+            return; 
+        }
+        document.getElementById('main-content').classList.remove('hidden');
+        
+        try {
+            // 2. Başlık ve Logo Ayarı
             if (cID !== 'admin') {
                 const { data: client } = await aemi.from('clients').select('*').eq('id', cID).single();
                 if(client) {
@@ -98,90 +104,105 @@
                 document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | TÜM VARLIKLAR";
             }
 
-            // 2. Verileri Filtrele
-            let query = aemi.from('tags').select('*, tag_data(*), clients(name)');
+            // 3. Verileri Çek (Hata Savar Sorgu)
+            let query = aemi.from('tags').select('*, tag_data(*)');
+            
+            // Eğer admin değilse sadece o müşteriyi filtrele
             if (cID !== 'admin') {
-                query = query.eq('client_id', cID); // Sadece müşteriyi çek
+                query = query.eq('client_id', cID); 
             }
 
             const { data: tags, error } = await query;
-            if (error) { console.error(error); return; }
+            if (error) throw error;
+
+            // Veri yoksa tabloya mesaj yaz
+            if (!tags || tags.length === 0) {
+                document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-10 text-center text-slate-600 font-bold uppercase tracking-widest">Henüz Kayıtlı Varlık Bulunamadı</td></tr>';
+                document.getElementById('stat-total').innerText = "0";
+                return;
+            }
 
             renderTable(tags);
+        } catch (e) {
+            console.error("Dashboard Hatası:", e);
+            document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500">Sistem Hatası: ${e.message}</td></tr>`;
         }
+    }
 
-        function renderTable(tags) {
-            const list = document.getElementById('tag-list');
-            list.innerHTML = '';
-            document.getElementById('stat-total').innerText = tags.length;
+    function renderTable(tags) {
+        const list = document.getElementById('tag-list');
+        list.innerHTML = '';
+        document.getElementById('stat-total').innerText = tags.length;
 
-            tags.forEach(tag => {
-                const attr = tag.tag_data[0]?.attributes || {};
-                const gps = attr.gps_location || "";
-                const clientName = tag.clients?.name || "Bilinmiyor";
+        tags.forEach(tag => {
+            const attr = tag.tag_data[0]?.attributes || {};
+            const gps = attr.gps_location || "";
 
-                list.innerHTML += `
-                    <tr class="hover:bg-sky-500/5 transition-all group">
-                        <td class="p-6">
-                            <span class="text-sky-400 font-mono font-bold">${tag.tag_id}</span><br>
-                            <span class="text-slate-500 text-xs">${attr.asset_name || 'Tanımsız'}</span>
-                        </td>
-                        <td class="p-6 text-center">
-                            <span class="text-[8px] px-2 py-1 rounded border ${tag.status === 'ACTIVE' ? 'border-green-500/40 text-green-400' : 'border-slate-700 text-slate-600'}">${tag.status}</span>
-                        </td>
-                        <td class="p-6 text-slate-500 text-xs">${clientName}</td>
-                        <td class="p-6 text-right space-x-2 flex justify-end items-center">
-                            ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all" title="Harita">🌍</button>` : ''}
+            list.innerHTML += `
+                <tr class="hover:bg-sky-500/5 transition-all group">
+                    <td class="p-6">
+                        <span class="text-sky-400 font-mono font-bold">${tag.tag_id}</span><br>
+                        <span class="text-slate-500 text-xs">${attr.asset_name || 'İsimsiz Varlık'}</span>
+                    </td>
+                    <td class="p-6 text-center">
+                        <span class="text-[8px] px-2 py-1 rounded border ${tag.status === 'ACTIVE' ? 'border-green-500/40 text-green-400' : 'border-slate-700 text-slate-600'}">${tag.status}</span>
+                    </td>
+                    <td class="p-6 text-slate-500 text-xs">Müşteri ID: ${tag.client_id || 'Atanmamış'}</td>
+                    <td class="p-6 text-right space-x-2">
+                        <div class="flex justify-end items-center gap-2">
+                            ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
                             <button onclick="resetItem('${tag.tag_id}')" class="p-2 hover:bg-orange-500/10 rounded-lg" title="Sıfırla">🔄</button>
                             <button onclick="editName('${tag.tag_id}', '${attr.asset_name || ''}')" class="p-2 hover:bg-slate-700 rounded-lg">✍️</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
 
-        function showMap(gps, name) {
-            const modal = document.getElementById('map-modal');
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            document.body.classList.add('modal-active');
-            document.getElementById('modal-title').innerText = name;
-            document.getElementById('modal-coords').innerText = "GPS: " + gps;
+    function showMap(gps, name) {
+        const modal = document.getElementById('map-modal');
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.classList.add('modal-active');
+        document.getElementById('modal-title').innerText = name;
+        document.getElementById('modal-coords').innerText = "Koordinatlar: " + gps;
 
-            const [lat, lng] = gps.split(',').map(Number);
-            
-            setTimeout(() => {
-                if (!leafletMap) {
-                    leafletMap = L.map('item-map').setView([lat, lng], 15);
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
-                } else {
-                    leafletMap.setView([lat, lng], 15);
-                }
-                L.marker([lat, lng]).addTo(leafletMap);
-            }, 200);
-        }
+        const [lat, lng] = gps.split(',').map(Number);
+        
+        setTimeout(() => {
+            if (!leafletMap) {
+                leafletMap = L.map('item-map').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
+            } else {
+                leafletMap.setView([lat, lng], 15);
+            }
+            L.marker([lat, lng]).addTo(leafletMap);
+        }, 200);
+    }
 
-        function closeMap() {
-            const modal = document.getElementById('map-modal');
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            document.body.classList.remove('modal-active');
-        }
+    function closeMap() {
+        const modal = document.getElementById('map-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        document.body.classList.remove('modal-active');
+    }
 
-        async function resetItem(id) {
-            if(!confirm("Bu plaka sıfırlanacak. Metal QR boşa çıkacak. Onaylıyor musunuz?")) return;
-            await aemi.from('tag_data').delete().eq('tag_id', id);
-            await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); // Durumu başa sar
-            location.reload();
-        }
+    async function resetItem(id) {
+        if(!confirm(id + " plakası sıfırlanacak. Onaylıyor musunuz?")) return;
+        await aemi.from('tag_data').delete().eq('tag_id', id);
+        await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id);
+        location.reload();
+    }
 
-        async function editName(id, old) {
-            const n = prompt("Yeni Ad:", old);
-            if(!n) return;
-            const { data: d } = await aemi.from('tag_data').select('*').eq('tag_id', id).single();
-            await aemi.from('tag_data').update({ attributes: { ...d.attributes, asset_name: n } }).eq('tag_id', id);
-            location.reload();
-        }
+    async function editName(id, old) {
+        const n = prompt("Yeni Varlık Adı:", old);
+        if(!n) return;
+        const { data: d } = await aemi.from('tag_data').select('*').eq('tag_id', id).single();
+        const newAttr = d ? { ...d.attributes, asset_name: n } : { asset_name: n };
+        await aemi.from('tag_data').update({ attributes: newAttr }).eq('tag_id', id);
+        location.reload();
+    }
 
-        init();
-    </script>
+    init();
+</script>
 </body>
 </html>
