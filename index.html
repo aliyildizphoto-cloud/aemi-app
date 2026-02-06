@@ -37,26 +37,42 @@
         const params = new URLSearchParams(window.location.search);
         const tagId = params.get('id');
 
-        async function init() {
-            const area = document.getElementById('status-area');
-            if(!tagId) { area.innerHTML = "⚠️ GEÇERSİZ URL!"; return; }
+       async function init() {
+    const area = document.getElementById('status-area');
+    if(!tagId) { area.innerHTML = "⚠️ GEÇERSİZ URL!"; return; }
 
-            try {
-                // Supabase'den etiketi kontrol et
-                const { data, error } = await aemiClient.from('tags').select('*').eq('tag_id', tagId).single();
-                
-                if (error) throw error;
+    try {
+        // .single() yerine düz sorgu atıyoruz ki hata verip çökmesin
+        const { data, error } = await aemiClient
+            .from('tags')
+            .select('*')
+            .eq('tag_id', tagId);
 
-                if (data.status === 'IDLE') {
-                    renderForm();
-                } else {
-                    renderSuccess();
-                }
-            } catch (e) {
-                area.innerHTML = `<div class="text-red-400">❌ BAĞLANTI HATASI:<br><span class="text-[10px]">${e.message}</span></div>`;
-            }
+        if (error) throw error;
+
+        // Eğer sonuç listesi boşsa (0 veri)
+        if (!data || data.length === 0) {
+            area.innerHTML = `
+                <div class="p-6 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/30 text-center">
+                    <h3 class="font-bold mb-1 underline">${tagId}</h3>
+                    <p class="text-[10px] uppercase tracking-widest">SİSTEMDE KAYITLI DEĞİL</p>
+                    <p class="text-[9px] mt-4 opacity-50">Lütfen harf duyarlılığına dikkat edin (TEST vs test)</p>
+                </div>`;
+            return;
         }
 
+        const tag = data[0]; // Bulunan ilk sonucu al
+
+        if (tag.status === 'IDLE') {
+            renderForm();
+        } else {
+            renderSuccess();
+        }
+    } catch (e) {
+        area.innerHTML = `<div class="text-red-400">❌ HATA:<br><span class="text-[10px]">${e.message}</span></div>`;
+    }
+}
+           
         function renderForm() {
             document.getElementById('status-area').innerHTML = `
                 <input id="asset_in" type="text" placeholder="Cihaz Adı" class="w-full p-4 bg-[#0f172a] rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-center font-bold">
