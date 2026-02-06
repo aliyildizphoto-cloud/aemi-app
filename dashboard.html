@@ -95,7 +95,7 @@
         try {
             // 2. Başlık ve Logo Ayarı
             if (cID !== 'admin') {
-                const { data: client } = await aemi.from('clients').select('*').eq('id', cID).single();
+                const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
                 if(client) {
                     document.getElementById('client-title').innerText = client.name + " | PORTAL";
                     if(client && client.logo_url) {
