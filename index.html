@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEMI LABS | Gateway</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0f172a] text-slate-200 min-h-screen flex items-center justify-center p-4">
+
+    <div id="app" class="max-w-md w-full bg-[#1e293b]/50 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-sky-500/20">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-sky-400">AEMI LABS</h1>
+            <p class="text-slate-500 text-[10px] uppercase tracking-widest mt-2">Digital Twin Protocol</p>
+        </div>
+        <div id="status-area" class="space-y-6 text-center text-slate-400">
+            Sistem sorgulanıyor...
+        </div>
+    </div>
+
+    <script>
+        // API Bilgilerini Buraya Gir
+        const PROJECT_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
+        const PROJECT_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
+
+        // İsim çakışması olmaması için 'client' ismini verdik
+        const client = supabase.createClient(PROJECT_URL, PROJECT_KEY);
+
+        const params = new URLSearchParams(window.location.search);
+        const tagId = params.get('id');
+
+        async function init() {
+            const area = document.getElementById('status-area');
+            if(!tagId) { area.innerHTML = "⚠️ Geçersiz URL!"; return; }
+
+            try {
+                // Veritabanındaki TEST-01 verisine bakıyoruz
+                const { data, error } = await client.from('tags').select('*').eq('tag_id', tagId).single();
+                if (error) throw error;
+
+                if (data.status === 'IDLE') {
+                    area.innerHTML = `
+                        <input id="in" type="text" placeholder="Cihaz Adı" class="w-full p-4 bg-[#0f172a] rounded-xl border border-slate-700 outline-none focus:border-sky-500">
+                        <button onclick="save()" class="w-full bg-sky-600 hover:bg-sky-500 py-4 rounded-xl font-bold shadow-lg transition-all">AKTİFLEŞTİR</button>
+                    `;
+                } else {
+                    area.innerHTML = `<div class="p-6 bg-green-500/10 text-green-400 rounded-xl border border-green-500/20 font-bold">✓ BU VARLIK AKTİF</div>`;
+                }
+            } catch (e) { area.innerHTML = "❌ Bağlantı Hatası: " + e.message; }
+        }
+
+        async function save() {
+            const name = document.getElementById('in').value;
+            if(!name) return alert("İsim lazım!");
+            
+            // Veritabanını güncelle
+            await client.from('tags').update({ status: 'ACTIVE' }).eq('tag_id', tagId);
+            await client.from('tag_data').insert([{ tag_id: tagId, attributes: { asset_name: name } }]);
+            
+            location.reload();
+        }
+
+        init();
+    </script>
+</body>
+</html>
