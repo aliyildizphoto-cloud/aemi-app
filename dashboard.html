@@ -53,9 +53,27 @@
         let map = L.map('map').setView([39.92, 32.85], 6); // Türkiye merkezli başlat
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        async function initDashboard() {
-            const { data: tags, error } = await aemiClient.from('tags').select('*, tag_data(*)');
-            if (error) return;
+        async function loadDashboard() {
+    // 1. URL'den hangi müşterinin geldiğini anla
+    const urlParams = new URLSearchParams(window.location.search);
+    const customerId = urlParams.get('client'); // Örn: ?client=1
+
+    if(!customerId) {
+        document.body.innerHTML = "<h1 class='text-center mt-20 text-red-500'>⚠️ YETKİSİZ ERİŞİM: Müşteri ID bulunamadı.</h1>";
+        return;
+    }
+
+    // 2. Sadece bu müşteriye ait etiketleri ve verilerini çek
+    // .eq('client_id', customerId) komutu sihirli dokunuşumuz
+    const { data: tags, error } = await aemiClient
+        .from('tags')
+        .select('*, tag_data(*)')
+        .eq('client_id', customerId); 
+
+    if (error) return console.error(error);
+
+    // ... (Geri kalan tablo oluşturma kodları aynı kalacak) ...
+
 
             const list = document.getElementById('tag-list');
             list.innerHTML = '';
