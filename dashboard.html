@@ -3,209 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEMI LABS | Master Control</title>
+    <title>AEMI LABS | Endüstriyel Yönetim</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
+        body {
+            background-image: url('https://img.freepik.com/free-vector/dark-blue-circuit-board-technology-background_1017-24799.jpg'); /* Değiştir */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
         .modal { transition: opacity 0.25s ease; }
         body.modal-active { overflow-y: hidden; }
-        #item-map { height: 300px; width: 100%; border-radius: 1rem; }
+        #item-map { height: 300px; width: 100%; border-radius: 1rem; border: 2px solid rgba(14, 165, 233, 0.5); }
+        .leaflet-container { background: #0f172a; }
+        
+        /* Tablo Satır Hover Efekti */
+        .tech-row:hover { background: rgba(14, 165, 233, 0.05); box-shadow: inset 0 0 20px rgba(14, 165, 233, 0.1); }
     </style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 min-h-screen p-4 md:p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0f172a] to-black font-sans">
+<body class="text-slate-200 min-h-screen p-4 md:p-8 font-sans">
 
-    <div id="main-content" class="max-w-6xl mx-auto space-y-6 hidden">
-        <div class="flex flex-col md:flex-row justify-between items-center bg-[#1e293b]/30 p-6 rounded-[2rem] border border-sky-500/10 shadow-xl gap-4">
-            <div class="flex items-center gap-4">
-                <div id="logo-container" class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-700">
-                    <span class="text-xs text-slate-500">LOGO</span>
+    <div class="absolute inset-0 bg-black/80 z-0 pointer-events-none"></div>
+
+    <div id="main-content" class="relative z-10 max-w-7xl mx-auto space-y-6 hidden">
+        <div class="flex flex-col md:flex-row justify-between items-center bg-[#0f172a]/60 backdrop-blur-xl p-6 rounded-[2rem] border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.15)] gap-4">
+            <div class="flex items-center gap-6">
+                <div id="logo-container" class="w-20 h-20 bg-[#0f172a] rounded-2xl flex items-center justify-center overflow-hidden border-2 border-sky-500/30 shadow-[0_0_15px_rgba(14,165,233,0.3)] p-1">
+                    <span class="text-xs text-sky-500 font-bold animate-pulse">YÜKLENİYOR</span>
                 </div>
                 <div>
-                    <h1 class="text-3xl font-black text-sky-400 tracking-tighter leading-none">AEMI MASTER</h1>
-                    <p id="client-title" class="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold mt-2">SİSTEM YÖNETİMİ</p>
+                    <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-blue-600 tracking-tighter filter drop-shadow-[0_0_5px_rgba(14,165,233,0.5)]">AEMI MASTER</h1>
+                    <p id="client-title" class="text-sky-400/70 text-[10px] uppercase tracking-[0.3em] font-bold mt-2 font-mono">SİSTEM YÖNETİMİ</p>
                 </div>
             </div>
-            <div class="flex gap-4">
-                <div class="text-center px-6 py-2 bg-sky-500/5 rounded-xl border border-sky-500/20">
-                    <p class="text-[9px] text-slate-500 uppercase">Varlık Sayısı</p>
-                    <p id="stat-total" class="text-xl font-bold text-sky-400">0</p>
+            <div class="flex gap-4 items-center">
+                <div class="text-center px-8 py-3 bg-sky-900/30 rounded-2xl border border-sky-500/30 shadow-[inset_0_0_10px_rgba(14,165,233,0.2)]">
+                    <p class="text-[9px] text-sky-300 uppercase tracking-widest font-bold">Toplam Varlık</p>
+                    <p id="stat-total" class="text-3xl font-black text-sky-400 font-mono drop-shadow-[0_0_5px_rgba(14,165,233,0.8)]">0</p>
                 </div>
-                <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl transition-all">🔄</button>
+                <button onclick="location.reload()" class="bg-sky-600/20 hover:bg-sky-600/40 p-4 rounded-2xl border border-sky-500/50 transition-all hover:shadow-[0_0_15px_rgba(14,165,233,0.4)] group"><span class="group-hover:animate-spin inline-block">🔄</span></button>
             </div>
         </div>
 
-        <div class="bg-[#1e293b]/40 backdrop-blur-xl rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
+        <div class="bg-[#0f172a]/60 backdrop-blur-xl rounded-[2rem] border border-sky-500/20 shadow-2xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-800/50 text-sky-500 text-[9px] uppercase tracking-[0.2em] font-bold">
+                    <thead class="bg-sky-900/20 text-sky-300 text-[9px] uppercase tracking-[0.2em] font-bold font-mono border-b border-sky-500/20">
                         <tr>
-                            <th class="p-6">Etiket & Varlık</th>
-                            <th class="p-6 text-center">Durum</th>
-                            <th class="p-6">Müşteri</th>
-                            <th class="p-6 text-right">Aksiyonlar</th>
+                            <th class="p-6">Etiket ID & Varlık Adı</th>
+                            <th class="p-6 text-center">Sistem Durumu</th>
+                            <th class="p-6">Ait Olduğu Müşteri</th>
+                            <th class="p-6 text-right">Operasyonlar</th>
                         </tr>
                     </thead>
-                    <tbody id="tag-list" class="divide-y divide-slate-800/50 text-sm">
+                    <tbody id="tag-list" class="divide-y divide-sky-500/10 text-sm font-mono">
                         </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div id="map-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
-        <div class="modal-overlay absolute w-full h-full bg-black opacity-80" onclick="closeMap()"></div>
-        <div class="modal-container bg-[#1e293b] w-11/12 md:max-w-lg mx-auto rounded-[2rem] shadow-2xl z-50 overflow-y-auto border border-sky-500/30">
-            <div class="p-6 text-left">
-                <div class="flex justify-between items-center pb-4">
-                    <p id="modal-title" class="text-xl font-bold text-sky-400 italic">Varlık Konumu</p>
-                    <button onclick="closeMap()" class="text-slate-400 hover:text-white">✕</button>
+    <div id="map-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 px-4">
+        <div class="modal-overlay absolute w-full h-full bg-black/90 backdrop-blur-sm" onclick="closeMap()"></div>
+        <div class="modal-container bg-[#0f172a] w-full max-w-lg mx-auto rounded-[2.5rem] shadow-[0_0_50px_rgba(14,165,233,0.3)] z-50 overflow-hidden border-2 border-sky-500/50 relative">
+            <div class="p-8 text-left">
+                <div class="flex justify-between items-center pb-6 border-b border-sky-500/20 mb-6">
+                    <p id="modal-title" class="text-2xl font-black text-sky-400 tracking-tight">Varlık Konumu</p>
+                    <button onclick="closeMap()" class="text-sky-500 hover:text-white text-2xl font-bold">&times;</button>
                 </div>
-                <div id="item-map"></div>
-                <p id="modal-coords" class="text-[10px] text-slate-500 mt-4 font-mono"></p>
+                <div id="item-map" class="shadow-[0_0_20px_rgba(14,165,233,0.2)]"></div>
+                <div class="mt-6 p-4 bg-sky-900/20 rounded-xl border border-sky-500/20 flex items-center">
+                     <span class="text-2xl mr-3">📍</span>
+                     <div>
+                         <p class="text-[9px] text-sky-300 uppercase tracking-widest font-bold">GPS Koordinatları</p>
+                         <p id="modal-coords" class="text-xs text-sky-100 font-mono mt-1"></p>
+                     </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="error-screen" class="hidden flex flex-col items-center justify-center min-h-screen text-center p-6">
-        <div class="text-6xl mb-4 grayscale">🔒</div>
-        <h1 class="text-xl font-bold text-slate-400 uppercase tracking-widest">Giriş Yetkisi Gerekiyor</h1>
-        <p class="text-slate-600 text-sm mt-2 max-w-xs">Lütfen size sağlanan müşteri veya admin linkini kullanın.</p>
+    <div id="error-screen" class="hidden flex flex-col items-center justify-center min-h-screen text-center p-6 relative z-10">
+        <div class="text-7xl mb-6 text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]">🔒</div>
+        <h1 class="text-3xl font-black text-red-500 uppercase tracking-[0.2em] drop-shadow">Yetkisiz Erişim</h1>
+        <p class="text-red-400/70 text-sm mt-4 max-w-xs font-mono border-t border-red-500/30 pt-4">Güvenlik protokolü nedeniyle giriş reddedildi. Lütfen geçerli bir müşteri kodu kullanın.</p>
     </div>
 
     <script>
-    // --- AYARLAR ---
-    const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
-    const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
-    const aemi = supabase.createClient(SB_URL, SB_KEY);
+        const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
+        const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
+        const aemi = supabase.createClient(SB_URL, SB_KEY);
+        const urlParams = new URLSearchParams(window.location.search);
+        const cID = urlParams.get('client');
+        let leafletMap = null;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const cID = urlParams.get('client'); 
-    let leafletMap = null;
-
-    async function init() {
-        // 1. Yetki Kontrolü
-        if (!cID) { 
-            document.getElementById('error-screen').classList.remove('hidden'); 
-            return; 
-        }
-        document.getElementById('main-content').classList.remove('hidden');
-        
-        try {
-            // 2. Başlık ve Logo Ayarı
-            if (cID !== 'admin') {
-                const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
-                if(client) {
-                    document.getElementById('client-title').innerText = client.name + " | PORTAL";
-                    if(client && client.logo_url) {
-    console.log("Logo Yükleniyor:", client.logo_url); // Hata ayıklama için
-    document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" alt="Logo" class="w-full h-full object-contain p-2" onerror="this.src='https://placehold.co/100x100?text=HATA'">`;
-}
-                }
-            } else {
-                document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | TÜM VARLIKLAR";
-            }
-
-            // 3. Verileri Çek (Hata Savar Sorgu)
-            let query = aemi.from('tags').select('*, tag_data(*)');
+        async function init() {
+            if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
+            document.getElementById('main-content').classList.remove('hidden');
             
-            // Eğer admin değilse sadece o müşteriyi filtrele
-            if (cID !== 'admin') {
-                query = query.eq('client_id', cID); 
+            try {
+                // Admin veya Müşteri Ayarı
+                const logoCont = document.getElementById('logo-container');
+                if (cID !== 'admin') {
+                    const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
+                    if(client) {
+                        document.getElementById('client-title').innerText = client.name + " | KURUMSAL PORTAL";
+                        if(client.logo_url) {
+                             logoCont.innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1 filter drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]">`;
+                        } else {
+                             logoCont.innerHTML = `<span class="text-3xl">🏢</span>`;
+                        }
+                    }
+                } else {
+                    document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
+                    // Admin için kendi logonun görselini buraya koyabilirsin
+                    logoCont.innerHTML = `<h1 class="text-sky-500 font-black text-xs text-center leading-tight">AEMI<br>TECH</h1>`;
+                }
+
+                let query = aemi.from('tags').select('*, tag_data(*), clients(name)');
+                if (cID !== 'admin') { query = query.eq('client_id', cID); }
+
+                const { data: tags, error } = await query;
+                if (error) throw error;
+
+                if (!tags || tags.length === 0) {
+                    document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-12 text-center text-slate-500 font-bold uppercase tracking-[0.2em] font-mono border-2 border-dashed border-slate-700 rounded-3xl m-4">Kayıtlı Endüstriyel Varlık Bulunamadı</td></tr>';
+                    document.getElementById('stat-total').innerText = "0";
+                    return;
+                }
+                renderTable(tags);
+            } catch (e) {
+                console.error("Hata:", e);
+                document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400 font-mono">Sistem Hatası: ${e.message}</td></tr>`;
             }
-
-            const { data: tags, error } = await query;
-            if (error) throw error;
-
-            // Veri yoksa tabloya mesaj yaz
-            if (!tags || tags.length === 0) {
-                document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-10 text-center text-slate-600 font-bold uppercase tracking-widest">Henüz Kayıtlı Varlık Bulunamadı</td></tr>';
-                document.getElementById('stat-total').innerText = "0";
-                return;
-            }
-
-            renderTable(tags);
-        } catch (e) {
-            console.error("Dashboard Hatası:", e);
-            document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500">Sistem Hatası: ${e.message}</td></tr>`;
         }
-    }
 
-    function renderTable(tags) {
-        const list = document.getElementById('tag-list');
-        list.innerHTML = '';
-        document.getElementById('stat-total').innerText = tags.length;
+        function renderTable(tags) {
+            const list = document.getElementById('tag-list');
+            list.innerHTML = '';
+            document.getElementById('stat-total').innerText = tags.length;
+            tags.forEach(tag => {
+                const attr = tag.tag_data[0]?.attributes || {};
+                const gps = attr.gps_location || "";
+                const clientName = tag.clients?.name || "Bilinmiyor";
+                const isActive = tag.status === 'ACTIVE';
 
-        tags.forEach(tag => {
-            const attr = tag.tag_data[0]?.attributes || {};
-            const gps = attr.gps_location || "";
+                list.innerHTML += `
+                    <tr class="tech-row transition-all group">
+                        <td class="p-6">
+                            <span class="text-sky-400 font-mono font-black text-lg drop-shadow-[0_0_5px_rgba(14,165,233,0.5)]">${tag.tag_id}</span><br>
+                            <span class="text-slate-400 text-xs font-sans tracking-wider">${attr.asset_name || 'Tanımsız Cihaz'}</span>
+                        </td>
+                        <td class="p-6 text-center">
+                            <div class="inline-flex items-center px-4 py-2 rounded-xl border ${isActive ? 'bg-green-500/10 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-slate-800/50 border-slate-600 text-slate-500'}">
+                                <span class="w-2 h-2 rounded-full mr-2 ${isActive ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}"></span>
+                                <span class="text-[9px] font-bold uppercase tracking-widest">${tag.status}</span>
+                            </div>
+                        </td>
+                        <td class="p-6 text-sky-300/70 text-xs font-mono">${clientName}</td>
+                        <td class="p-6 text-right">
+                            <div class="flex justify-end items-center gap-3">
+                                ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl hover:bg-sky-500/30 hover:shadow-[0_0_15px_rgba(14,165,233,0.5)] transition-all group" title="Konumu Göster"><span class="group-hover:scale-125 inline-block transition-transform">🌍</span></button>` : ''}
+                                <button onclick="resetItem('${tag.tag_id}')" class="p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl hover:bg-orange-500/30 hover:shadow-[0_0_15px_rgba(249,115,22,0.5)] transition-all group" title="Sıfırla"><span class="group-hover:rotate-180 inline-block transition-transform duration-500">🔄</span></button>
+                                <button onclick="editName('${tag.tag_id}', '${attr.asset_name || ''}')" class="p-3 bg-slate-700/30 border border-slate-600 rounded-xl hover:bg-sky-500/20 hover:border-sky-500/50 transition-all" title="Düzenle">✍️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
 
-            list.innerHTML += `
-                <tr class="hover:bg-sky-500/5 transition-all group">
-                    <td class="p-6">
-                        <span class="text-sky-400 font-mono font-bold">${tag.tag_id}</span><br>
-                        <span class="text-slate-500 text-xs">${attr.asset_name || 'İsimsiz Varlık'}</span>
-                    </td>
-                    <td class="p-6 text-center">
-                        <span class="text-[8px] px-2 py-1 rounded border ${tag.status === 'ACTIVE' ? 'border-green-500/40 text-green-400' : 'border-slate-700 text-slate-600'}">${tag.status}</span>
-                    </td>
-                    <td class="p-6 text-slate-500 text-xs">Müşteri ID: ${tag.client_id || 'Atanmamış'}</td>
-                    <td class="p-6 text-right space-x-2">
-                        <div class="flex justify-end items-center gap-2">
-                            ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
-                            <button onclick="resetItem('${tag.tag_id}')" class="p-2 hover:bg-orange-500/10 rounded-lg" title="Sıfırla">🔄</button>
-                            <button onclick="editName('${tag.tag_id}', '${attr.asset_name || ''}')" class="p-2 hover:bg-slate-700 rounded-lg">✍️</button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
-    }
-
-    function showMap(gps, name) {
-        const modal = document.getElementById('map-modal');
-        modal.classList.remove('opacity-0', 'pointer-events-none');
-        document.body.classList.add('modal-active');
-        document.getElementById('modal-title').innerText = name;
-        document.getElementById('modal-coords').innerText = "Koordinatlar: " + gps;
-
-        const [lat, lng] = gps.split(',').map(Number);
-        
-        setTimeout(() => {
-            if (!leafletMap) {
-                leafletMap = L.map('item-map').setView([lat, lng], 15);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
-            } else {
-                leafletMap.setView([lat, lng], 15);
-            }
-            L.marker([lat, lng]).addTo(leafletMap);
-        }, 200);
-    }
-
-    function closeMap() {
-        const modal = document.getElementById('map-modal');
-        modal.classList.add('opacity-0', 'pointer-events-none');
-        document.body.classList.remove('modal-active');
-    }
-
-    async function resetItem(id) {
-        if(!confirm(id + " plakası sıfırlanacak. Onaylıyor musunuz?")) return;
-        await aemi.from('tag_data').delete().eq('tag_id', id);
-        await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id);
-        location.reload();
-    }
-
-    async function editName(id, old) {
-        const n = prompt("Yeni Varlık Adı:", old);
-        if(!n) return;
-        const { data: d } = await aemi.from('tag_data').select('*').eq('tag_id', id).single();
-        const newAttr = d ? { ...d.attributes, asset_name: n } : { asset_name: n };
-        await aemi.from('tag_data').update({ attributes: newAttr }).eq('tag_id', id);
-        location.reload();
-    }
-
-    init();
-</script>
+        function showMap(gps, name) {
+            const modal = document.getElementById('map-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.classList.add('modal-active');
+            document.getElementById('modal-title').innerText = name;
+            document.getElementById('modal-coords').innerText = gps;
+            const [lat, lng] = gps.split(',').map(Number);
+            setTimeout(() => {
+                if (!leafletMap) {
+                    leafletMap = L.map('item-map').setView([lat, lng], 15);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution: '© OpenStreetMap'}).addTo(leafletMap);
+                } else { leafletMap.setView([lat, lng], 15); }
+                L.marker([lat, lng]).addTo(leafletMap).bindPopup(`<b class="text-sky-500">${name}</b>`).openPopup();
+            }, 200);
+        }
+        function closeMap() {
+            document.getElementById('map-modal').classList.add('opacity-0', 'pointer-events-none');
+            document.body.classList.remove('modal-active');
+        }
+        async function resetItem(id) { if(!confirm("⚠️ DİKKAT: " + id + " cihazı fabrika ayarlarına döndürülecek. Onaylıyor musunuz?")) return; await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }
+        async function editName(id, old) { const n = prompt("Yeni Cihaz Adı:", old); if(!n) return; const { data: d } = await aemi.from('tag_data').select('*').eq('tag_id', id).single(); const newAttr = d ? { ...d.attributes, asset_name: n } : { asset_name: n }; await aemi.from('tag_data').update({ attributes: newAttr }).eq('tag_id', id); location.reload(); }
+        init();
+    </script>
 </body>
 </html>
