@@ -3,119 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEMI LABS | Gateway</title>
+    <title>AEMI LABS | Varlık Aktivasyonu</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        body {
+            background-image: url('https://img.freepik.com/free-vector/dark-blue-circuit-board-technology-background_1017-24799.jpg'); /* Değiştir */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
         @keyframes pulse-neon {
-            0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.5); }
-            50% { box-shadow: 0 0 25px rgba(14, 165, 233, 0.8); }
+            0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.3), inset 0 0 20px rgba(14, 165, 233, 0.1); border-color: rgba(14, 165, 233, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(14, 165, 233, 0.6), inset 0 0 40px rgba(14, 165, 233, 0.2); border-color: rgba(14, 165, 233, 0.8); }
         }
         .neon-box { animation: pulse-neon 3s infinite ease-in-out; }
     </style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 min-h-screen flex items-center justify-center p-4">
+<body class="text-slate-200 min-h-screen flex items-center justify-center p-4">
 
-    <div id="app" class="max-w-md w-full bg-[#1e293b]/60 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-sky-500/30 neon-box">
-        <div class="text-center mb-10">
-            <h1 class="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-600 pb-2">AEMI LABS</h1>
-            <p class="text-sky-400/80 text-[10px] uppercase tracking-[0.4em] font-bold">Digital Twin Protocol</p>
+    <div class="absolute inset-0 bg-black/75 z-0"></div>
+
+    <div id="app" class="relative z-10 max-w-md w-full bg-[#0f172a]/70 backdrop-blur-xl rounded-[3rem] p-8 border-2 border-sky-500/30 neon-box text-center">
+        
+        <div class="mb-12">
+            <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-sky-300 to-blue-600 tracking-tighter filter drop-shadow-[0_0_10px_rgba(14,165,233,0.8)]">AEMI LABS</h1>
+            <div class="h-0.5 w-24 mx-auto bg-sky-500/50 my-3"></div>
+            <p class="text-sky-400/80 text-[9px] uppercase tracking-[0.3em] font-bold font-mono">Endüstriyel Takip Protokolü</p>
         </div>
 
-        <div id="status-area" class="space-y-6 min-h-[200px] flex flex-col justify-center text-center">
-            <div class="animate-pulse text-sky-500/50">SİSTEM BAĞLANTISI KURULUYOR...</div>
+        <div id="status-area" class="space-y-6 min-h-[250px] flex flex-col justify-center items-center">
+            <div class="flex flex-col items-center space-y-4 animate-pulse">
+                 <div class="relative w-16 h-16">
+                    <div class="absolute inset-0 rounded-full border-4 border-sky-900/50"></div>
+                    <div class="absolute inset-0 rounded-full border-t-4 border-sky-400 animate-spin"></div>
+                 </div>
+                <p class="text-sky-300/70 text-xs tracking-widest font-mono">SİSTEM BAĞLANTISI KURULUYOR...</p>
+            </div>
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-sky-900/30">
+             <p class="text-slate-500/60 text-[9px] font-mono tracking-widest">FIELD UNIT ID: <span id="unit-id" class="text-sky-500">---</span></p>
         </div>
     </div>
 
     <script>
-        // --- KRİTİK AYARLAR ---
+        // --- ANAHTARLARINI GİR ---
         const AEMI_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
         const AEMI_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
         
-        // İsim çakışmasını engellemek için 'aemiClient' ismini kullandık
         const aemiClient = supabase.createClient(AEMI_URL, AEMI_KEY);
         const params = new URLSearchParams(window.location.search);
         const tagId = params.get('id');
+        document.getElementById('unit-id').innerText = tagId || 'UNKNOWN';
 
-       async function init() {
-    const area = document.getElementById('status-area');
-    if(!tagId) { area.innerHTML = "⚠️ GEÇERSİZ URL!"; return; }
+        async function init() {
+            const area = document.getElementById('status-area');
+            if(!tagId) { area.innerHTML = "<div class='text-red-400 font-bold border border-red-500/50 p-4 rounded-xl bg-red-900/20'>⚠️ GEÇERSİZ BAĞLANTI<br><span class='text-xs font-normal'>QR Kodu tekrar okutun.</span></div>"; return; }
 
-    try {
-        // .single() yerine düz sorgu atıyoruz ki hata verip çökmesin
-        const { data, error } = await aemiClient
-            .from('tags')
-            .select('*')
-            .eq('tag_id', tagId);
+            try {
+                await new Promise(r => setTimeout(r, 1000)); // Efekt için kısa bekleme
+                const { data, error } = await aemiClient.from('tags').select('*').ilike('tag_id', tagId);
+                if (error) throw error;
 
-        if (error) throw error;
+                if (!data || data.length === 0) {
+                    area.innerHTML = `<div class="p-6 bg-amber-900/30 text-amber-400 rounded-2xl border-2 border-amber-500/50 text-center neon-box" style="animation-duration: 1.5s;"><h3 class="font-bold mb-2 text-xl font-mono">${tagId}</h3><p class="text-[10px] uppercase tracking-widest font-bold">SİSTEMDE TANIMLI DEĞİL</p></div>`;
+                    return;
+                }
 
-        // Eğer sonuç listesi boşsa (0 veri)
-        if (!data || data.length === 0) {
-            area.innerHTML = `
-                <div class="p-6 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/30 text-center">
-                    <h3 class="font-bold mb-1 underline">${tagId}</h3>
-                    <p class="text-[10px] uppercase tracking-widest">SİSTEMDE KAYITLI DEĞİL</p>
-                    <p class="text-[9px] mt-4 opacity-50">Lütfen harf duyarlılığına dikkat edin (TEST vs test)</p>
-                </div>`;
-            return;
+                const tag = data[0];
+                if (tag.status === 'IDLE') { renderForm(); } else { renderSuccess(); }
+            } catch (e) {
+                area.innerHTML = `<div class="text-red-400 font-mono text-sm">❌ BAĞLANTI HATASI:<br>${e.message}</div>`;
+            }
         }
 
-        const tag = data[0]; // Bulunan ilk sonucu al
-
-        if (tag.status === 'IDLE') {
-            renderForm();
-        } else {
-            renderSuccess();
-        }
-    } catch (e) {
-        area.innerHTML = `<div class="text-red-400">❌ HATA:<br><span class="text-[10px]">${e.message}</span></div>`;
-    }
-}
-           
         function renderForm() {
             document.getElementById('status-area').innerHTML = `
-                <input id="asset_in" type="text" placeholder="Cihaz Adı" class="w-full p-4 bg-[#0f172a] rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-center font-bold">
-                <button onclick="saveAsset()" class="w-full bg-sky-600 hover:bg-sky-500 py-4 rounded-xl font-bold transition-all">SİSTEME TANIMLA</button>
+                <div class="bg-sky-900/30 p-4 rounded-2xl border border-sky-500/50 mb-2 w-full text-center">
+                    <p class="text-sky-300 font-bold flex items-center justify-center text-sm tracking-wider"><span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-sky-400 opacity-75 mr-2"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500 mr-2"></span>YENİ VARLIK TESPİT EDİLDİ</p>
+                </div>
+                <input id="asset_in" type="text" placeholder="CİHAZ ADI / SERİ NO" class="w-full p-5 bg-[#0f172a]/80 rounded-2xl border-2 border-sky-900/50 outline-none focus:border-sky-500 text-sky-100 text-center font-bold tracking-widest transition-all placeholder:text-slate-600 font-mono">
+                <button onclick="saveAsset()" class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 py-5 rounded-2xl font-black tracking-[0.2em] shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-all transform hover:-translate-y-1 border border-sky-500/50 text-sm relative overflow-hidden group"><span class="relative z-10">SİSTEME TANIMLA</span><div class="absolute inset-0 h-full w-full bg-[linear-gradient(45deg,transparent_25%,rgba(14,165,233,0.3)_50%,transparent_75%)] bg-[length:250%_250%] animate-[shimmer_3s_linear_infinite]"></div></button>
             `;
         }
 
         async function saveAsset() {
             const name = document.getElementById('asset_in').value;
-            if(!name) return alert("İsim gerekli!");
-
-            let gps = "Konum İzni Verilmedi";
+            if(!name) return alert("Lütfen bir isim girin!");
             const area = document.getElementById('status-area');
-            area.innerHTML = '<div class="text-sky-400 animate-pulse font-bold">VERİ VE KONUM İŞLENİYOR...</div>';
+            area.innerHTML = '<div class="flex flex-col items-center space-y-4"><div class="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div><div class="text-sky-400 animate-pulse font-bold tracking-widest font-mono">VERİ VE KONUM İŞLENİYOR...</div></div>';
+            
+            let gps = "Konum İzni Verilmedi";
+            try { const pos = await new Promise((res, rej) => { navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000}); }); gps = `${pos.coords.latitude}, ${pos.coords.longitude}`; } catch (err) { console.warn("GPS yok."); }
 
-            // GPS Denemesi
-            try {
-                const pos = await new Promise((res, rej) => {
-                    navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000});
-                });
-                gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-            } catch (err) { console.warn("GPS alınamadı."); }
-
-            // Supabase Güncelleme
-            await aemiClient.from('tags').update({ status: 'ACTIVE' }).eq('tag_id', tagId);
-            await aemiClient.from('tag_data').insert([{ 
-                tag_id: tagId, 
-                attributes: { asset_name: name, gps_location: gps, date: new Date().toISOString() } 
-            }]);
-
+            await aemiClient.from('tags').update({ status: 'ACTIVE' }).ilike('tag_id', tagId);
+            await aemiClient.from('tag_data').insert([{ tag_id: tagId, attributes: { asset_name: name, gps_location: gps, date: new Date().toISOString() } }]);
             location.reload();
         }
 
         function renderSuccess() {
             document.getElementById('status-area').innerHTML = `
-                <div class="py-8">
-                    <div class="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
-                    <h2 class="text-2xl font-bold text-green-400 tracking-tight">VARLIK AKTİF</h2>
-                    <p class="text-slate-500 text-xs mt-2 uppercase tracking-widest">AEMI LABS İZLEME ALTINDA</p>
+                <div class="py-6 flex flex-col items-center">
+                    <div class="relative mb-6">
+                        <div class="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse"></div>
+                        <div class="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-700 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.5)] relative z-10 border-2 border-green-400/50"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>
+                    </div>
+                    <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-500 tracking-tight drop-shadow">VARLIK AKTİF</h2>
+                    <p class="text-green-400/70 text-xs mt-2 uppercase tracking-[0.3em] font-bold font-mono">AEMI LABS İZLEME ALTINDA</p>
                 </div>
             `;
         }
-
         init();
     </script>
 </body>
