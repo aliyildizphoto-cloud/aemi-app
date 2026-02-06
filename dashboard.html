@@ -98,7 +98,10 @@
                 const { data: client } = await aemi.from('clients').select('*').eq('id', cID).single();
                 if(client) {
                     document.getElementById('client-title').innerText = client.name + " | PORTAL";
-                    if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-2">`;
+                    if(client && client.logo_url) {
+    console.log("Logo Yükleniyor:", client.logo_url); // Hata ayıklama için
+    document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" alt="Logo" class="w-full h-full object-contain p-2" onerror="this.src='https://placehold.co/100x100?text=HATA'">`;
+}
                 }
             } else {
                 document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | TÜM VARLIKLAR";
