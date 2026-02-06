@@ -122,13 +122,44 @@
             area.innerHTML = `<div class="p-6 bg-red-900/30 text-red-400 rounded-2xl border border-red-500/50 text-center"><h3 class="font-bold text-lg mb-2">${title}</h3><p class="text-sm">${msg}</p></div>`;
         }
 
-        async function save() {
-            const name = document.getElementById('in').value;
-            if(!name) return;
-            area.innerHTML = '<div class="text-center text-sky-400 animate-pulse font-bold">KAYDEDİLİYOR...</div>';
-            await client.from('tags').update({ status: 'ACTIVE' }).eq('tag_id', tagId);
-            await client.from('tag_data').insert([{ tag_id: tagId, attributes: { asset_name: name } }]);
-            location.reload();
+       async function save() {
+    const name = document.getElementById('in').value;
+    if(!name) return alert("Lütfen bir isim girin!");
+    
+    let locationData = "Konum İzni Verilmedi"; // Varsayılan değer
+
+    // 1. GPS Koordinatlarını Almayı Dene
+    if (navigator.geolocation) {
+        try {
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+            });
+            locationData = `${position.coords.latitude}, ${position.coords.longitude}`;
+        } catch (error) {
+            console.warn("Konum alınamadı:", error.message);
+            // Hata olsa da locationData varsayılan değerde kalır ve kod devam eder
+        }
+    }
+
+    area.innerHTML = '<div class="text-center text-sky-400 animate-pulse font-bold">KAYDEDİLİYOR VE KONUM ALINIYOR...</div>';
+
+    // 2. Supabase'i Güncelle
+    // tags tablosunu aktif et
+    await client.from('tags').update({ status: 'ACTIVE' }).eq('tag_id', tagId);
+    
+    // tag_data tablosuna isim VE konumu ekle
+    await client.from('tag_data').insert([{ 
+        tag_id: tagId, 
+        attributes: { 
+            asset_name: name, 
+            gps_location: locationData, // Burası ya koordinat ya da "İzin Verilmedi" olacak
+            activated_at: new Date().toISOString()
+        } 
+    }]);
+
+    alert("Varlık ve Konum Başarıyla Kaydedildi!");
+    location.reload();
+}
         }
 
         init();
