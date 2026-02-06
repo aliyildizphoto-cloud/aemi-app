@@ -84,7 +84,7 @@
                         <td class="p-5 text-[10px] font-mono text-slate-500">${gps || '---'}</td>
                         <td class="p-5 text-right space-x-2">
                             <button onclick="editAsset('${tag.tag_id}', '${attr.asset_name || ''}')" class="text-sky-500 hover:bg-sky-500/10 p-2 rounded">✍️</button>
-                            <button onclick="deleteAsset('${tag.tag_id}')" class="text-red-500 hover:bg-red-500/10 p-2 rounded">🗑️</button>
+                            <button onclick="resetAsset('${tag.tag_id}')" class="text-orange-500 hover:bg-orange-500/10 p-2 rounded" title="Sıfırla">🔄</button>
                         </td>
                     </tr>
                 `;
@@ -101,12 +101,31 @@
             location.reload();
         }
 
-        async function deleteAsset(id) {
-            if(!confirm(`${id} etiketini ve tüm verilerini silmek istediğine emin misin?`)) return;
-            await aemiClient.from('tag_data').delete().eq('tag_id', id);
-            await aemiClient.from('tags').delete().eq('tag_id', id);
-            location.reload();
-        }
+        async function resetAsset(id) {
+    const onay = confirm(`${id} etiketini sıfırlamak istediğine emin misin?\n\nDikkat: Varlık verileri silinecek ama QR kodunuz çalışmaya devam edecektir.`);
+    
+    if(!onay) return;
+
+    // 1. Tag_data tablosundaki varlık bilgilerini tamamen sil
+    const { error: dataError } = await aemiClient
+        .from('tag_data')
+                .delete()
+        .eq('tag_id', id);
+
+    // 2. Tags tablosundaki durumu tekrar 'IDLE' yap
+    const { error: tagError } = await aemiClient
+        .from('tags')
+        .update({ status: 'IDLE' })
+        .eq('tag_id', id);
+
+    if (!dataError && !tagError) {
+        alert("Etiket başarıyla sıfırlandı. Yeniden tanımlamaya hazır!");
+        location.reload();
+    } else {
+        alert("Bir hata oluştu.");
+    }
+}
+      
 
         initDashboard();
     </script>
