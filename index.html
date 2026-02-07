@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background-image: url('aemilabs-back.jpg'); /* Değiştir */
+            background-image: url('https://img.freepik.com/free-vector/dark-blue-circuit-board-technology-background_1017-24799.jpg'); /* Değiştir */
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -57,65 +57,61 @@
         const tagId = params.get('id');
         document.getElementById('unit-id').innerText = tagId || 'UNKNOWN';
 
-        async function init() {
-            const area = document.getElementById('status-area');
-            if(!tagId) { area.innerHTML = "<div class='text-red-400 font-bold border border-red-500/50 p-4 rounded-xl bg-red-900/20'>⚠️ GEÇERSİZ BAĞLANTI<br><span class='text-xs font-normal'>QR Kodu tekrar okutun.</span></div>"; return; }
+      async function init() {
+        if(!tagId) { renderError("GEÇERSİZ QR KOD"); return; }
 
-            try {
-                await new Promise(r => setTimeout(r, 1000)); // Efekt için kısa bekleme
-                const { data, error } = await aemiClient.from('tags').select('*').ilike('tag_id', tagId);
-                if (error) throw error;
+        // Sektör bilgisini çekiyoruz (industry sütunu kritik)
+        const { data: tag, error } = await aemi.from('tags').select('*, clients(*), tag_data(*)').ilike('tag_id', tagId).single();
+        
+        if (error || !tag) { renderError("VARLIK SİSTEMDE TANIMLI DEĞİL"); return; }
 
-                if (!data || data.length === 0) {
-                    area.innerHTML = `<div class="p-6 bg-amber-900/30 text-amber-400 rounded-2xl border-2 border-amber-500/50 text-center neon-box" style="animation-duration: 1.5s;"><h3 class="font-bold mb-2 text-xl font-mono">${tagId}</h3><p class="text-[10px] uppercase tracking-widest font-bold">SİSTEMDE TANIMLI DEĞİL</p></div>`;
-                    return;
-                }
+        document.getElementById('client-header').classList.remove('hidden');
+        document.getElementById('client-name').innerText = tag.clients.client_name;
+        const industry = tag.clients.industry; // 'GES' veya 'Makine'
 
-                const tag = data[0];
-                if (tag.status === 'IDLE') { renderForm(); } else { renderSuccess(); }
-            } catch (e) {
-                area.innerHTML = `<div class="text-red-400 font-mono text-sm">❌ BAĞLANTI HATASI:<br>${e.message}</div>`;
-            }
+        if (tag.status === 'IDLE') {
+            renderFactoryForm(tag, industry); // Sektöre özel fabrika formu
+        } else if (tag.status === 'FACTORY') {
+            renderSiteForm(tag); // Stoktaki ürünü sahaya kurma
+        } else {
+            renderActiveView(tag.tag_data[0]);
         }
+    }
 
-        function renderForm() {
-            document.getElementById('status-area').innerHTML = `
-                <div class="bg-sky-900/30 p-4 rounded-2xl border border-sky-500/50 mb-2 w-full text-center">
-                    <p class="text-sky-300 font-bold flex items-center justify-center text-sm tracking-wider"><span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-sky-400 opacity-75 mr-2"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500 mr-2"></span>YENİ VARLIK TESPİT EDİLDİ</p>
+    function renderFactoryForm(tag, industry) {
+        let formHtml = "";
+        
+        if(industry === 'Makine') { // Pres Üreticisi Formu
+            formHtml = `
+                <input id="f_model" type="text" placeholder="Pres Modeli" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+                <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="f_cap" type="text" placeholder="Kapasite (Ton)" class="p-3 bg-slate-900 rounded-xl border border-slate-700 text-[10px]">
+                    <input id="f_stroke" type="text" placeholder="Strok (mm)" class="p-3 bg-slate-900 rounded-xl border border-slate-700 text-[10px]">
                 </div>
-                <input id="asset_in" type="text" placeholder="CİHAZ ADI / SERİ NO" class="w-full p-5 bg-[#0f172a]/80 rounded-2xl border-2 border-sky-900/50 outline-none focus:border-sky-500 text-sky-100 text-center font-bold tracking-widest transition-all placeholder:text-slate-600 font-mono">
-                <button onclick="saveAsset()" class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 py-5 rounded-2xl font-black tracking-[0.2em] shadow-[0_0_20px_rgba(14,165,233,0.4)] transition-all transform hover:-translate-y-1 border border-sky-500/50 text-sm relative overflow-hidden group"><span class="relative z-10">SİSTEME TANIMLA</span><div class="absolute inset-0 h-full w-full bg-[linear-gradient(45deg,transparent_25%,rgba(14,165,233,0.3)_50%,transparent_75%)] bg-[length:250%_250%] animate-[shimmer_3s_linear_infinite]"></div></button>
+                <input id="f_motor" type="text" placeholder="Motor Gücü & Hızı" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+                <input id="f_year" type="number" placeholder="Üretim Yılı" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+            `;
+        } else { // GES Formu
+            formHtml = `
+                <input id="f_model" type="text" placeholder="Panel/İnvertör Modeli" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+                <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+                <input id="f_voc" type="text" placeholder="Voc / Isc Değerleri" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
             `;
         }
 
-        async function saveAsset() {
-            const name = document.getElementById('asset_in').value;
-            if(!name) return alert("Lütfen bir isim girin!");
-            const area = document.getElementById('status-area');
-            area.innerHTML = '<div class="flex flex-col items-center space-y-4"><div class="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div><div class="text-sky-400 animate-pulse font-bold tracking-widest font-mono">VERİ VE KONUM İŞLENİYOR...</div></div>';
-            
-            let gps = "Konum İzni Verilmedi";
-            try { const pos = await new Promise((res, rej) => { navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000}); }); gps = `${pos.coords.latitude}, ${pos.coords.longitude}`; } catch (err) { console.warn("GPS yok."); }
+        document.getElementById('status-area').innerHTML = `
+            <div class="bg-sky-500/10 p-3 rounded-xl border border-sky-500/30 mb-4 font-mono text-[10px]">
+                PROTOKOL: FABRİKA KAYDI (${industry})
+            </div>
+            <div class="space-y-3 text-left">
+                ${formHtml}
+                <button onclick="saveFactoryData('${industry}')" class="w-full bg-sky-600 py-4 rounded-xl font-black text-xs">STOK KAYDINI TAMAMLA</button>
+            </div>
+        `;
+    }
 
-            await aemiClient.from('tags').update({ status: 'ACTIVE' }).ilike('tag_id', tagId);
-            await aemiClient.from('tag_data').insert([{ tag_id: tagId, attributes: { asset_name: name, gps_location: gps, date: new Date().toISOString() } }]);
-            location.reload();
-        }
-
-        function renderSuccess() {
-            document.getElementById('status-area').innerHTML = `
-                <div class="py-6 flex flex-col items-center">
-                    <div class="relative mb-6">
-                        <div class="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse"></div>
-                        <div class="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-700 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.5)] relative z-10 border-2 border-green-400/50"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>
-                    </div>
-                    <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-500 tracking-tight drop-shadow">VARLIK AKTİF</h2>
-                    <p class="text-green-400/70 text-xs mt-2 uppercase tracking-[0.3em] font-bold font-mono">AEMI LABS İZLEME ALTINDA</p>
-                </div>
-            `;
-        }
-        init();
-    </script>
+    // ... (saveFactoryData fonksiyonunda eklenen alanları yakalayıp JSON'a ekliyoruz) ...
+</script>
 </body>
-
 </html>
