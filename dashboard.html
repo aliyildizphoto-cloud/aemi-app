@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEMI LABS | Master Control</title>
+    <title>AEMI MASTER | Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -28,7 +28,7 @@
     <div id="main-content" class="relative z-10 max-w-7xl mx-auto space-y-6 hidden">
         <div class="flex flex-col md:flex-row justify-between items-center bg-[#1e293b]/40 backdrop-blur-xl p-6 rounded-[2.5rem] border border-sky-500/20 shadow-2xl gap-4">
             <div class="flex items-center gap-6">
-                <div id="logo-container" class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center overflow-hidden border-2 border-sky-500/30 p-1">
+                <div id="logo-container" class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center overflow-hidden border-2 border-sky-500/30 p-1 shadow-[0_0_15px_rgba(14,165,233,0.3)]">
                     <span class="text-xs text-slate-400 font-bold">AEMI</span>
                 </div>
                 <div>
@@ -50,10 +50,10 @@
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-slate-800/50 text-sky-500 text-[10px] uppercase tracking-widest font-bold">
                         <tr>
+                            <th class="p-6 text-center">İşlemler</th>
                             <th class="p-6">Etiket & Varlık Adı</th>
                             <th class="p-6 text-center">Durum</th>
                             <th class="p-6">Müşteri</th>
-                            <th class="p-6 text-right">İşlemler</th>
                         </tr>
                     </thead>
                     <tbody id="tag-list" class="divide-y divide-slate-800/50 text-sm">
@@ -66,26 +66,22 @@
     <div id="details-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 p-4">
         <div class="modal-overlay absolute w-full h-full bg-black/95 backdrop-blur-sm" onclick="closeModal('details-modal')"></div>
         <div class="bg-[#0f172a] w-full max-w-2xl mx-auto rounded-[2.5rem] shadow-2xl z-50 overflow-hidden border-2 border-sky-500/40 relative">
-            <div id="details-content" class="p-8 max-h-[85vh] overflow-y-auto">
-                </div>
+            <div id="details-content" class="p-8 max-h-[85vh] overflow-y-auto text-left"></div>
         </div>
     </div>
 
     <div id="map-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 p-4">
         <div class="modal-overlay absolute w-full h-full bg-black/95 backdrop-blur-sm" onclick="closeModal('map-modal')"></div>
         <div class="bg-[#1e293b] w-full max-w-lg mx-auto rounded-[2.5rem] shadow-2xl z-50 overflow-hidden border-2 border-sky-500/40 relative p-8 text-left">
-            <h3 id="map-title" class="text-2xl font-black text-sky-400 mb-6 italic">VARLIK KONUMU</h3>
+            <h3 id="map-title" class="text-2xl font-black text-sky-400 mb-6 italic tracking-tight">VARLIK KONUMU</h3>
             <div id="item-map"></div>
             <p id="map-coords" class="text-[10px] text-slate-500 mt-4 font-mono"></p>
         </div>
     </div>
 
-    <div id="error-screen" class="hidden flex flex-col items-center justify-center min-h-screen text-center p-6">
-        <h1 class="text-2xl font-bold text-red-500">🔒 YETKİSİZ ERİŞİM</h1>
-    </div>
-
     <script>
-		const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
+        // --- AYARLAR ---
+        const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
         const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
         const aemi = supabase.createClient(SB_URL, SB_KEY);
         const urlParams = new URLSearchParams(window.location.search);
@@ -93,7 +89,7 @@
         let leafletMap = null;
 
         async function init() {
-            if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
+            if (!cID) { document.getElementById('main-content').classList.remove('hidden'); return; }
             document.getElementById('main-content').classList.remove('hidden');
             
             try {
@@ -102,13 +98,13 @@
                     const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
                     if(client) {
                         document.getElementById('client-title').innerText = client.client_name + " | PORTAL";
-                        if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain">`;
+                        if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1">`;
                     }
                 } else {
                     document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
                 }
 
-                // 2. Veri Sorgusu (Sütun isimleri düzeltildi)
+                // 2. Veri Sorgusu (İsimlendirme hataları giderildi)
                 let query = aemi.from('tags').select('*, tag_data(*), clients(client_name, industry, logo_url, web_url)');
                 if (cID !== 'admin') { query = query.eq('client_id', cID); }
 
@@ -126,26 +122,25 @@
             tags.forEach(tag => {
                 const attr = tag.tag_data[0]?.attributes || {};
                 const gps = attr.gps_location || "";
-                const clientName = tag.clients?.client_name || "Bilinmiyor";
+                const clientName = tag.clients?.client_name || "---";
 
                 const row = document.createElement('tr');
-                row.className = 'tech-row transition-all';
+                row.className = 'tech-row transition-all group';
                 row.innerHTML = `
-                    <td class="p-6">
-                        <span class="text-sky-400 font-mono font-bold text-lg">${tag.tag_id}</span><br>
-                        <span class="text-slate-500 text-xs">${attr.asset_name || 'İsimsiz Varlık'}</span>
-                    </td>
-                    <td class="p-6 text-center">
-                        <span class="px-2 py-1 rounded text-[9px] border ${tag.status === 'ACTIVE' ? 'border-green-500 text-green-400' : 'border-slate-600 text-slate-600'}">${tag.status}</span>
-                    </td>
-                    <td class="p-6 text-slate-500 text-xs">${clientName}</td>
-                    <td class="p-6 text-right space-x-2">
-                        <div class="flex justify-end gap-2">
-                            <button onclick='showDetails(${JSON.stringify(tag)})' class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">📄</button>
+                    <td class="p-6 text-center space-x-1">
+                        <div class="flex justify-center gap-2">
+                            <button onclick='showDetails(${JSON.stringify(tag)})' class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all" title="Dijital Kimlik Kartı">📄</button>
                             ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
-                            <button onclick="resetItem('${tag.tag_id}')" class="p-2 hover:bg-orange-500/10 rounded-lg">🔄</button>
                         </div>
                     </td>
+                    <td class="p-6">
+                        <span class="text-sky-400 font-mono font-bold text-lg">${tag.tag_id}</span><br>
+                        <span class="text-slate-500 text-xs">${attr.asset_name || 'Tanımsız Varlık'}</span>
+                    </td>
+                    <td class="p-6 text-center">
+                        <span class="px-2 py-1 rounded text-[9px] border ${tag.status === 'ACTIVE' ? 'border-green-500 text-green-400' : 'border-slate-600 text-slate-600'} uppercase">${tag.status}</span>
+                    </td>
+                    <td class="p-6 text-slate-500 text-xs font-bold">${clientName}</td>
                 `;
                 list.appendChild(row);
             });
@@ -154,30 +149,34 @@
         function showDetails(tag) {
             const attr = tag.tag_data[0]?.attributes || {};
             const client = tag.clients || {};
-            const industry = client.industry || 'Genel'; //
+            const industry = client.industry || 'Genel';
             
             document.getElementById('details-content').innerHTML = `
                 <div class="flex items-center justify-between border-b border-sky-500/20 pb-6 mb-6">
-                    <div class="flex items-center gap-4 text-left">
-                        <div class="w-16 h-16 bg-white rounded-xl p-1 shrink-0"><img src="${client.logo_url}" class="w-full h-full object-contain"></div>
-                        <div><h2 class="text-2xl font-black text-sky-400">${client.client_name}</h2><p class="text-[9px] text-slate-500 uppercase tracking-widest">Saha Teknik Kartı</p></div>
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 bg-white rounded-xl p-1 shrink-0 shadow-lg shadow-sky-900/20"><img src="${client.logo_url}" class="w-full h-full object-contain"></div>
+                        <div><h2 class="text-2xl font-black text-sky-400 tracking-tighter">${client.client_name}</h2><p class="text-[9px] text-slate-500 uppercase tracking-[0.3em] font-bold">DIGITAL TWIN CARD</p></div>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3 mb-8 text-left">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
                     <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Model</p><p class="text-sm font-bold text-slate-200">${attr.model || '---'}</p></div>
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Seri No</p><p class="text-sm font-bold text-slate-200 font-mono">${attr.serial || '---'}</p></div>
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Sektör</p><p class="text-sm font-bold text-slate-200">${industry}</p></div>
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Kapasite / Güç</p><p class="text-sm font-bold text-slate-200">${attr.cap || attr.power || '---'}</p></div>
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Seri No</p><p class="text-sm font-bold text-slate-200 font-mono italic">${attr.serial || '---'}</p></div>
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Kapasite</p><p class="text-sm font-bold text-slate-200">${attr.cap || attr.power || '---'}</p></div>
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Üretim Yılı</p><p class="text-sm font-bold text-slate-200">${attr.year || '---'}</p></div>
                 </div>
-                <div class="space-y-3 mb-8 text-left">
-                    <h3 class="text-[10px] font-bold text-sky-500 uppercase ml-2">BELGELER</h3>
-                    <div class="grid grid-cols-2 gap-3">
-                        <a href="${attr.manual_url || '#'}" class="p-4 bg-slate-800 rounded-2xl border border-slate-700 text-xs font-bold text-center">📕 Kılavuz</a>
-                        <a href="${attr.ce_url || '#'}" class="p-4 bg-slate-800 rounded-2xl border border-slate-700 text-xs font-bold text-center">📜 Sertifikalar</a>
+                <div class="space-y-4 mb-8">
+                    <h3 class="text-[10px] font-black text-sky-500 uppercase tracking-widest ml-1">📚 Dijital Dökümantasyon</h3>
+                    <div class="grid md:grid-cols-2 gap-3">
+                        <a href="${attr.manual_url || '#'}" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-left">
+                            <span class="text-xl mb-2 block">📕</span><span class="text-xs font-bold">Kullanım Kılavuzu</span>
+                        </a>
+                        <a href="${attr.ce_url || '#'}" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-left">
+                            <span class="text-xl mb-2 block">📜</span><span class="text-xs font-bold">CE & TSE Sertifikaları</span>
+                        </a>
                     </div>
                 </div>
-                <div class="p-4 bg-red-900/20 border border-red-500/30 rounded-2xl text-[9px] text-red-200 leading-relaxed italic text-left">
-                    ⚠️ UYARI: Yetkisiz personel müdahalesi tehlikelidir. Bakım talimatlarını takip ediniz.
+                <div class="p-5 bg-red-900/20 border border-red-500/30 rounded-3xl text-[9px] text-red-200 leading-relaxed text-left italic">
+                    <span class="font-black text-red-500 uppercase not-italic">Kritik Güvenlik Protokolü:</span> Yetkisiz personel müdahalesi tehlikelidir. Tüm bakım işlemleri tescilli servis personeli tarafından gerçekleştirilmelidir.
                 </div>
             `;
             document.getElementById('details-modal').classList.remove('opacity-0', 'pointer-events-none');
@@ -186,7 +185,7 @@
         function showMap(gps, name) {
             document.getElementById('map-modal').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('map-title').innerText = name;
-            document.getElementById('map-coords').innerText = "GPS: " + gps;
+            document.getElementById('map-coords').innerText = "KOORDİNAT: " + gps;
             const [lat, lng] = gps.split(',').map(Number);
             setTimeout(() => {
                 if (!leafletMap) {
@@ -198,7 +197,6 @@
         }
 
         function closeModal(id) { document.getElementById(id).classList.add('opacity-0', 'pointer-events-none'); }
-        async function resetItem(id) { if(confirm("Varlık sıfırlansın mı?")) { await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }}
         init();
     </script>
 </body>
