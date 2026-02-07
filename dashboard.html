@@ -16,7 +16,6 @@
             background-attachment: fixed;
         }
         .modal { transition: opacity 0.25s ease; }
-        body.modal-active { overflow-y: hidden; }
         #item-map { height: 300px; width: 100%; border-radius: 1.5rem; border: 2px solid rgba(14, 165, 233, 0.4); }
         .tech-row:hover { background: rgba(14, 165, 233, 0.05); }
     </style>
@@ -25,20 +24,22 @@
 
     <div class="absolute inset-0 bg-black/80 z-0 pointer-events-none"></div>
 
-    <div id="main-content" class="relative z-10 max-w-7xl mx-auto space-y-6 hidden">
+    <div id="debug-error" class="relative z-50 text-red-500 font-mono text-xs text-center"></div>
+
+    <div id="main-content" class="relative z-10 max-w-7xl mx-auto space-y-6">
         <div class="flex flex-col md:flex-row justify-between items-center bg-[#1e293b]/40 backdrop-blur-xl p-6 rounded-[2.5rem] border border-sky-500/20 shadow-2xl gap-4">
             <div class="flex items-center gap-6">
-                <div id="logo-container" class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center overflow-hidden border-2 border-sky-500/30 p-1 shadow-[0_0_15px_rgba(14,165,233,0.3)]">
-                    <span class="text-xs text-slate-400 font-bold">AEMI</span>
+                <div id="logo-container" class="w-20 h-20 bg-white rounded-2xl flex items-center justify-center overflow-hidden border-2 border-sky-500/30 p-1">
+                    <span class="text-xs text-slate-400 font-bold italic">AEMI</span>
                 </div>
-                <div>
+                <div class="text-left">
                     <h1 class="text-4xl font-black text-sky-400 tracking-tighter filter drop-shadow-[0_0_10px_rgba(14,165,233,0.4)]">AEMI MASTER</h1>
-                    <p id="client-title" class="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold mt-2">SİSTEM YÖNETİMİ</p>
+                    <p id="client-title" class="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold mt-2 font-mono italic">Yükleniyor...</p>
                 </div>
             </div>
             <div class="flex gap-4">
                 <div class="text-center px-8 py-3 bg-sky-500/5 rounded-2xl border border-sky-500/20">
-                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">Varlık Sayısı</p>
+                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">Sistemdeki Varlık</p>
                     <p id="stat-total" class="text-2xl font-black text-sky-400 font-mono">0</p>
                 </div>
                 <button onclick="location.reload()" class="bg-slate-800 p-4 rounded-2xl hover:bg-slate-700 transition-all border border-slate-700">🔄</button>
@@ -48,16 +49,17 @@
         <div class="bg-[#1e293b]/40 backdrop-blur-xl rounded-[2.5rem] border border-slate-700/50 shadow-2xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-800/50 text-sky-500 text-[10px] uppercase tracking-widest font-bold">
+                    <thead class="bg-slate-800/50 text-sky-500 text-[10px] uppercase tracking-widest font-bold font-mono">
                         <tr>
-                            <th class="p-6 text-center">İşlemler</th>
-                            <th class="p-6">Etiket & Varlık Adı</th>
-                            <th class="p-6 text-center">Durum</th>
-                            <th class="p-6">Müşteri</th>
+                            <th class="p-6 text-center">İŞLEMLER</th>
+                            <th class="p-6">ETİKET & VARLIK ADI</th>
+                            <th class="p-6 text-center">DURUM</th>
+                            <th class="p-6">MÜŞTERİ</th>
                         </tr>
                     </thead>
-                    <tbody id="tag-list" class="divide-y divide-slate-800/50 text-sm">
-                        </tbody>
+                    <tbody id="tag-list" class="divide-y divide-slate-800/50 text-sm font-mono">
+                        <tr><td colspan="4" class="p-20 text-center text-sky-500 animate-pulse uppercase tracking-[0.5em]">Veriler Senkronize Ediliyor...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -73,7 +75,7 @@
     <div id="map-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 p-4">
         <div class="modal-overlay absolute w-full h-full bg-black/95 backdrop-blur-sm" onclick="closeModal('map-modal')"></div>
         <div class="bg-[#1e293b] w-full max-w-lg mx-auto rounded-[2.5rem] shadow-2xl z-50 overflow-hidden border-2 border-sky-500/40 relative p-8 text-left">
-            <h3 id="map-title" class="text-2xl font-black text-sky-400 mb-6 italic tracking-tight">VARLIK KONUMU</h3>
+            <h3 id="map-title" class="text-2xl font-black text-sky-400 mb-6 italic">VARLIK KONUMU</h3>
             <div id="item-map"></div>
             <p id="map-coords" class="text-[10px] text-slate-500 mt-4 font-mono"></p>
         </div>
@@ -86,85 +88,111 @@
         const aemi = supabase.createClient(SB_URL, SB_KEY);
         const urlParams = new URLSearchParams(window.location.search);
         const cID = urlParams.get('client');
+        
+        let fetchedTags = []; // Güvenli veri depolama
         let leafletMap = null;
 
-       async function init() {
-    if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
-    document.getElementById('main-content').classList.remove('hidden');
-    
-    try {
-        // 1. Müşteri Bilgisi
-        if (cID !== 'admin') {
-            const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
-            if(client) {
-                document.getElementById('client-title').innerText = client.client_name + " | PORTAL";
-                if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain">`;
+        async function init() {
+            if (!cID) { 
+                document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-10 text-center text-red-500">HATA: Müşteri kodu bulunamadı.</td></tr>';
+                return; 
             }
-        } else {
-            document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
+            
+            try {
+                // 1. Müşteri İsmini Çek
+                if (cID !== 'admin') {
+                    const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
+                    if(client) {
+                        document.getElementById('client-title').innerText = client.client_name + " | KURUMSAL PORTAL";
+                        if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1">`;
+                    }
+                } else {
+                    document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
+                }
+
+                // 2. Varlıkları Çek (Left Join ile garantili sorgu)
+                let query = aemi.from('tags').select('*, tag_data(*), clients!left(client_name, industry, logo_url, web_url)');
+                
+                if (cID !== 'admin') { 
+                    query = query.eq('client_id', cID); 
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                fetchedTags = data || [];
+                renderTable();
+
+            } catch (e) { 
+                console.error(e);
+                document.getElementById('debug-error').innerText = "SİSTEM HATASI: " + e.message;
+                document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400">Veritabanı bağlantısı kurulamadı.</td></tr>`;
+            }
         }
 
-        // 2. KRİTİK DÜZELTME: Sorguyu basitleştirdik. 
-        // Eğer birleştirme (join) hata verirse sadece etiketleri çekmeye devam edecek.
-        let query = aemi.from('tags').select('*, tag_data(*), clients!left(client_name, industry, logo_url, web_url)');
-        
-        if (cID !== 'admin') { 
-            query = query.eq('client_id', cID); 
+        function renderTable() {
+            const list = document.getElementById('tag-list');
+            list.innerHTML = '';
+            document.getElementById('stat-total').innerText = fetchedTags.length;
+
+            if (fetchedTags.length === 0) {
+                list.innerHTML = '<tr><td colspan="4" class="p-20 text-center text-slate-500 uppercase tracking-widest font-bold">Kayıtlı Varlık Bulunmuyor</td></tr>';
+                return;
+            }
+
+            fetchedTags.forEach((tag, index) => {
+                const attr = tag.tag_data[0]?.attributes || {};
+                const gps = attr.gps_location || "";
+                const clientName = tag.clients?.client_name || "---";
+
+                const row = `
+                    <tr class="tech-row transition-all group">
+                        <td class="p-6 text-center">
+                            <div class="flex justify-center gap-2">
+                                <button onclick="showDetails(${index})" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">📄</button>
+                                ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
+                                <button onclick="resetItem('${tag.tag_id}')" class="p-2 hover:bg-orange-500/10 rounded-lg transition-colors">🔄</button>
+                            </div>
+                        </td>
+                        <td class="p-6 text-left">
+                            <span class="text-sky-400 font-bold text-lg drop-shadow-[0_0_5px_rgba(14,165,233,0.4)]">${tag.tag_id}</span><br>
+                            <span class="text-slate-500 text-xs">${attr.asset_name || 'Tanımsız Cihaz'}</span>
+                        </td>
+                        <td class="p-6 text-center">
+                            <span class="px-2 py-1 rounded text-[9px] border ${tag.status === 'ACTIVE' ? 'border-green-500 text-green-400' : 'border-slate-600 text-slate-600'} uppercase font-black">${tag.status}</span>
+                        </td>
+                        <td class="p-6 text-slate-500 text-xs font-bold uppercase tracking-wider text-left">${clientName}</td>
+                    </tr>
+                `;
+                list.insertAdjacentHTML('beforeend', row);
+            });
         }
 
-        const { data: tags, error } = await query;
-        
-        if (error) {
-            console.error("Sorgu Hatası:", error);
-            // Eğer join hatası alırsak, en azından ham veriyi çekmeyi deneyelim
-            const { data: rawTags } = await aemi.from('tags').select('*, tag_data(*)');
-            renderTable(rawTags || []);
-            return;
-        }
-
-        if (!tags || tags.length === 0) {
-            document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-12 text-center text-slate-500 font-bold uppercase tracking-widest">Görüntülenecek Varlık Yok (client_id kontrol edin)</td></tr>';
-            document.getElementById('stat-total').innerText = "0";
-            return;
-        }
-
-        renderTable(tags);
-    } catch (e) { 
-        console.error("Genel Hata:", e); 
-    }
-
-
-        function showDetails(tag) {
+        function showDetails(index) {
+            const tag = fetchedTags[index];
             const attr = tag.tag_data[0]?.attributes || {};
             const client = tag.clients || {};
-            const industry = client.industry || 'Genel';
             
             document.getElementById('details-content').innerHTML = `
                 <div class="flex items-center justify-between border-b border-sky-500/20 pb-6 mb-6">
                     <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 bg-white rounded-xl p-1 shrink-0 shadow-lg shadow-sky-900/20"><img src="${client.logo_url}" class="w-full h-full object-contain"></div>
-                        <div><h2 class="text-2xl font-black text-sky-400 tracking-tighter">${client.client_name}</h2><p class="text-[9px] text-slate-500 uppercase tracking-[0.3em] font-bold">DIGITAL TWIN CARD</p></div>
+                        <div class="w-16 h-16 bg-white rounded-xl p-1 shrink-0"><img src="${client.logo_url || ''}" class="w-full h-full object-contain"></div>
+                        <div><h2 class="text-2xl font-black text-sky-400 tracking-tighter uppercase">${client.client_name || 'Bilinmiyor'}</h2><p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Teknik Bilgi Kartı</p></div>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Model</p><p class="text-sm font-bold text-slate-200">${attr.model || '---'}</p></div>
+                <div class="grid grid-cols-2 gap-3 mb-8">
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Cihaz Modeli</p><p class="text-sm font-bold text-slate-200">${attr.model || '---'}</p></div>
                     <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Seri No</p><p class="text-sm font-bold text-slate-200 font-mono italic">${attr.serial || '---'}</p></div>
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Kapasite</p><p class="text-sm font-bold text-slate-200">${attr.cap || attr.power || '---'}</p></div>
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Üretim Yılı</p><p class="text-sm font-bold text-slate-200">${attr.year || '---'}</p></div>
                 </div>
                 <div class="space-y-4 mb-8">
-                    <h3 class="text-[10px] font-black text-sky-500 uppercase tracking-widest ml-1">📚 Dijital Dökümantasyon</h3>
-                    <div class="grid md:grid-cols-2 gap-3">
-                        <a href="${attr.manual_url || '#'}" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-left">
-                            <span class="text-xl mb-2 block">📕</span><span class="text-xs font-bold">Kullanım Kılavuzu</span>
-                        </a>
-                        <a href="${attr.ce_url || '#'}" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-left">
-                            <span class="text-xl mb-2 block">📜</span><span class="text-xs font-bold">CE & TSE Sertifikaları</span>
-                        </a>
+                    <h3 class="text-[10px] font-black text-sky-500 uppercase tracking-widest ml-1">📚 Dijital Arşiv</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <a href="${attr.manual_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-center text-xs font-bold uppercase">📕 Kılavuz</a>
+                        <a href="${attr.ce_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-center text-xs font-bold uppercase">📜 Sertifika</a>
                     </div>
                 </div>
-                <div class="p-5 bg-red-900/20 border border-red-500/30 rounded-3xl text-[9px] text-red-200 leading-relaxed text-left italic">
-                    <span class="font-black text-red-500 uppercase not-italic">Kritik Güvenlik Protokolü:</span> Yetkisiz personel müdahalesi tehlikelidir. Tüm bakım işlemleri tescilli servis personeli tarafından gerçekleştirilmelidir.
+                <div class="p-4 bg-red-900/20 border border-red-500/30 rounded-3xl text-[9px] text-red-200 leading-relaxed italic">
+                    ⚠️ UYARI: Yetkisiz personel müdahalesi tehlikelidir. Bakım talimatlarını takip ediniz.
                 </div>
             `;
             document.getElementById('details-modal').classList.remove('opacity-0', 'pointer-events-none');
@@ -185,6 +213,8 @@
         }
 
         function closeModal(id) { document.getElementById(id).classList.add('opacity-0', 'pointer-events-none'); }
+        async function resetItem(id) { if(confirm(id + " sıfırlanacak. Emin misiniz?")) { await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }}
+        
         init();
     </script>
 </body>
