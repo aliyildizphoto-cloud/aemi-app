@@ -88,63 +88,51 @@
         const cID = urlParams.get('client');
         let leafletMap = null;
 
-        async function init() {
-            if (!cID) { document.getElementById('main-content').classList.remove('hidden'); return; }
-            document.getElementById('main-content').classList.remove('hidden');
-            
-            try {
-                // 1. Müşteri Bilgisi
-                if (cID !== 'admin') {
-                    const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
-                    if(client) {
-                        document.getElementById('client-title').innerText = client.client_name + " | PORTAL";
-                        if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1">`;
-                    }
-                } else {
-                    document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
-                }
-
-                // 2. Veri Sorgusu (İsimlendirme hataları giderildi)
-                let query = aemi.from('tags').select('*, tag_data(*), clients(client_name, industry, logo_url, web_url)');
-                if (cID !== 'admin') { query = query.eq('client_id', cID); }
-
-                const { data: tags, error } = await query;
-                if (error) throw error;
-                renderTable(tags);
-            } catch (e) { console.error(e); }
+       async function init() {
+    if (!cID) { document.getElementById('error-screen').classList.remove('hidden'); return; }
+    document.getElementById('main-content').classList.remove('hidden');
+    
+    try {
+        // 1. Müşteri Bilgisi
+        if (cID !== 'admin') {
+            const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
+            if(client) {
+                document.getElementById('client-title').innerText = client.client_name + " | PORTAL";
+                if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain">`;
+            }
+        } else {
+            document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
         }
 
-        function renderTable(tags) {
-            const list = document.getElementById('tag-list');
-            list.innerHTML = '';
-            document.getElementById('stat-total').innerText = tags.length;
-
-            tags.forEach(tag => {
-                const attr = tag.tag_data[0]?.attributes || {};
-                const gps = attr.gps_location || "";
-                const clientName = tag.clients?.client_name || "---";
-
-                const row = document.createElement('tr');
-                row.className = 'tech-row transition-all group';
-                row.innerHTML = `
-                    <td class="p-6 text-center space-x-1">
-                        <div class="flex justify-center gap-2">
-                            <button onclick='showDetails(${JSON.stringify(tag)})' class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all" title="Dijital Kimlik Kartı">📄</button>
-                            ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
-                        </div>
-                    </td>
-                    <td class="p-6">
-                        <span class="text-sky-400 font-mono font-bold text-lg">${tag.tag_id}</span><br>
-                        <span class="text-slate-500 text-xs">${attr.asset_name || 'Tanımsız Varlık'}</span>
-                    </td>
-                    <td class="p-6 text-center">
-                        <span class="px-2 py-1 rounded text-[9px] border ${tag.status === 'ACTIVE' ? 'border-green-500 text-green-400' : 'border-slate-600 text-slate-600'} uppercase">${tag.status}</span>
-                    </td>
-                    <td class="p-6 text-slate-500 text-xs font-bold">${clientName}</td>
-                `;
-                list.appendChild(row);
-            });
+        // 2. KRİTİK DÜZELTME: Sorguyu basitleştirdik. 
+        // Eğer birleştirme (join) hata verirse sadece etiketleri çekmeye devam edecek.
+        let query = aemi.from('tags').select('*, tag_data(*), clients!left(client_name, industry, logo_url, web_url)');
+        
+        if (cID !== 'admin') { 
+            query = query.eq('client_id', cID); 
         }
+
+        const { data: tags, error } = await query;
+        
+        if (error) {
+            console.error("Sorgu Hatası:", error);
+            // Eğer join hatası alırsak, en azından ham veriyi çekmeyi deneyelim
+            const { data: rawTags } = await aemi.from('tags').select('*, tag_data(*)');
+            renderTable(rawTags || []);
+            return;
+        }
+
+        if (!tags || tags.length === 0) {
+            document.getElementById('tag-list').innerHTML = '<tr><td colspan="4" class="p-12 text-center text-slate-500 font-bold uppercase tracking-widest">Görüntülenecek Varlık Yok (client_id kontrol edin)</td></tr>';
+            document.getElementById('stat-total').innerText = "0";
+            return;
+        }
+
+        renderTable(tags);
+    } catch (e) { 
+        console.error("Genel Hata:", e); 
+    }
+
 
         function showDetails(tag) {
             const attr = tag.tag_data[0]?.attributes || {};
