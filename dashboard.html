@@ -24,8 +24,6 @@
 
     <div class="absolute inset-0 bg-black/80 z-0 pointer-events-none"></div>
 
-    <div id="debug-error" class="relative z-50 text-red-500 font-mono text-xs text-center"></div>
-
     <div id="main-content" class="relative z-10 max-w-7xl mx-auto space-y-6">
         <div class="flex flex-col md:flex-row justify-between items-center bg-[#1e293b]/40 backdrop-blur-xl p-6 rounded-[2.5rem] border border-sky-500/20 shadow-2xl gap-4">
             <div class="flex items-center gap-6">
@@ -34,15 +32,16 @@
                 </div>
                 <div class="text-left">
                     <h1 class="text-4xl font-black text-sky-400 tracking-tighter filter drop-shadow-[0_0_10px_rgba(14,165,233,0.4)]">AEMI MASTER</h1>
-                    <p id="client-title" class="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold mt-2 font-mono italic">Yükleniyor...</p>
+                    <p id="client-title" class="text-slate-500 text-[10px] uppercase tracking-[0.3em] font-bold mt-2 font-mono italic">SİSTEM YÜKLENİYOR...</p>
                 </div>
             </div>
             <div class="flex gap-4">
-                <div class="text-center px-8 py-3 bg-sky-500/5 rounded-2xl border border-sky-500/20">
-                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">Sistemdeki Varlık</p>
-                    <p id="stat-total" class="text-2xl font-black text-sky-400 font-mono">0</p>
+                <div class="text-center px-8 py-3 bg-sky-500/5 rounded-2xl border border-sky-500/20 text-left">
+                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest leading-none">SİSTEMDEKİ</p>
+                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">TOPLAM VARLIK</p>
+                    <p id="stat-total" class="text-2xl font-black text-sky-400 font-mono leading-none mt-1">0</p>
                 </div>
-                <button onclick="location.reload()" class="bg-slate-800 p-4 rounded-2xl hover:bg-slate-700 transition-all border border-slate-700">🔄</button>
+                <button onclick="location.reload()" class="bg-slate-800 p-4 rounded-2xl hover:bg-slate-700 transition-all border border-slate-700 shadow-lg">🔄</button>
             </div>
         </div>
 
@@ -57,7 +56,7 @@
                             <th class="p-6">MÜŞTERİ</th>
                         </tr>
                     </thead>
-                    <tbody id="tag-list" class="divide-y divide-slate-800/50 text-sm font-mono">
+                    <tbody id="tag-list" class="divide-y divide-slate-800/50 text-sm font-mono italic">
                         <tr><td colspan="4" class="p-20 text-center text-sky-500 animate-pulse uppercase tracking-[0.5em]">Veriler Senkronize Ediliyor...</td></tr>
                     </tbody>
                 </table>
@@ -68,14 +67,14 @@
     <div id="details-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 p-4">
         <div class="modal-overlay absolute w-full h-full bg-black/95 backdrop-blur-sm" onclick="closeModal('details-modal')"></div>
         <div class="bg-[#0f172a] w-full max-w-2xl mx-auto rounded-[2.5rem] shadow-2xl z-50 overflow-hidden border-2 border-sky-500/40 relative">
-            <div id="details-content" class="p-8 max-h-[85vh] overflow-y-auto text-left"></div>
+            <div id="details-content" class="p-8 max-h-[85vh] overflow-y-auto text-left italic"></div>
         </div>
     </div>
 
     <div id="map-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 p-4">
         <div class="modal-overlay absolute w-full h-full bg-black/95 backdrop-blur-sm" onclick="closeModal('map-modal')"></div>
         <div class="bg-[#1e293b] w-full max-w-lg mx-auto rounded-[2.5rem] shadow-2xl z-50 overflow-hidden border-2 border-sky-500/40 relative p-8 text-left">
-            <h3 id="map-title" class="text-2xl font-black text-sky-400 mb-6 italic">VARLIK KONUMU</h3>
+            <h3 id="map-title" class="text-2xl font-black text-sky-400 mb-6 italic tracking-tight uppercase">VARLIK KONUMU</h3>
             <div id="item-map"></div>
             <p id="map-coords" class="text-[10px] text-slate-500 mt-4 font-mono"></p>
         </div>
@@ -89,7 +88,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const cID = urlParams.get('client');
         
-        let fetchedTags = []; // Güvenli veri depolama
+        let fetchedTags = [];
         let leafletMap = null;
 
         async function init() {
@@ -99,23 +98,21 @@
             }
             
             try {
-                // 1. Müşteri İsmini Çek
+                // 1. Müşteri Bilgisi
                 if (cID !== 'admin') {
                     const { data: client } = await aemi.from('clients').select('*').eq('client_id', cID).single();
                     if(client) {
-                        document.getElementById('client-title').innerText = client.client_name + " | KURUMSAL PORTAL";
+                        document.getElementById('client-title').innerText = client.client_name + " | PORTAL";
                         if(client.logo_url) document.getElementById('logo-container').innerHTML = `<img src="${client.logo_url}" class="w-full h-full object-contain p-1">`;
                     }
                 } else {
                     document.getElementById('client-title').innerText = "SİSTEM ADMİNİ | ANA KUMANDA";
                 }
 
-                // 2. Varlıkları Çek (Left Join ile garantili sorgu)
-                let query = aemi.from('tags').select('*, tag_data(*), clients!left(client_name, industry, logo_url, web_url)');
+                // 2. Varlıkları Çek (web_url sütunu hata verdiği için çıkarıldı)
+                let query = aemi.from('tags').select('*, tag_data(*), clients!left(client_name, industry, logo_url)');
                 
-                if (cID !== 'admin') { 
-                    query = query.eq('client_id', cID); 
-                }
+                if (cID !== 'admin') { query = query.eq('client_id', cID); }
 
                 const { data, error } = await query;
                 if (error) throw error;
@@ -125,8 +122,7 @@
 
             } catch (e) { 
                 console.error(e);
-                document.getElementById('debug-error').innerText = "SİSTEM HATASI: " + e.message;
-                document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400">Veritabanı bağlantısı kurulamadı.</td></tr>`;
+                document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400 uppercase font-bold italic">Bağlantı Hatası: ${e.message}</td></tr>`;
             }
         }
 
@@ -136,7 +132,7 @@
             document.getElementById('stat-total').innerText = fetchedTags.length;
 
             if (fetchedTags.length === 0) {
-                list.innerHTML = '<tr><td colspan="4" class="p-20 text-center text-slate-500 uppercase tracking-widest font-bold">Kayıtlı Varlık Bulunmuyor</td></tr>';
+                list.innerHTML = '<tr><td colspan="4" class="p-20 text-center text-slate-500 uppercase tracking-widest font-black italic">SİSTEMDE KAYITLI VARLIK BULUNMAMAKTADIR</td></tr>';
                 return;
             }
 
@@ -149,19 +145,22 @@
                     <tr class="tech-row transition-all group">
                         <td class="p-6 text-center">
                             <div class="flex justify-center gap-2">
-                                <button onclick="showDetails(${index})" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">📄</button>
-                                ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all">🌍</button>` : ''}
-                                <button onclick="resetItem('${tag.tag_id}')" class="p-2 hover:bg-orange-500/10 rounded-lg transition-colors">🔄</button>
+                                <button onclick="showDetails(${index})" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all shadow-sm">📄</button>
+                                ${gps.includes(',') ? `<button onclick="showMap('${gps}', '${attr.asset_name || tag.tag_id}')" class="p-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/30 transition-all shadow-sm">🌍</button>` : ''}
+                                <button onclick="resetItem('${tag.tag_id}')" class="p-2 hover:bg-orange-500/10 rounded-lg transition-colors shadow-sm">🔄</button>
                             </div>
                         </td>
                         <td class="p-6 text-left">
-                            <span class="text-sky-400 font-bold text-lg drop-shadow-[0_0_5px_rgba(14,165,233,0.4)]">${tag.tag_id}</span><br>
-                            <span class="text-slate-500 text-xs">${attr.asset_name || 'Tanımsız Cihaz'}</span>
+                            <span class="text-sky-400 font-black text-lg drop-shadow-[0_0_5px_rgba(14,165,233,0.5)] italic uppercase">${tag.tag_id}</span><br>
+                            <span class="text-slate-500 text-[10px] uppercase font-bold tracking-widest">${attr.asset_name || 'Tanımsız Varlık'}</span>
                         </td>
                         <td class="p-6 text-center">
-                            <span class="px-2 py-1 rounded text-[9px] border ${tag.status === 'ACTIVE' ? 'border-green-500 text-green-400' : 'border-slate-600 text-slate-600'} uppercase font-black">${tag.status}</span>
+                            <div class="inline-flex items-center px-3 py-1 rounded-full border ${tag.status === 'ACTIVE' ? 'border-green-500/40 bg-green-500/10 text-green-400' : 'border-slate-700 bg-slate-900/50 text-slate-600'}">
+                                <span class="w-1.5 h-1.5 rounded-full mr-2 ${tag.status === 'ACTIVE' ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}"></span>
+                                <span class="text-[9px] font-black uppercase tracking-widest">${tag.status}</span>
+                            </div>
                         </td>
-                        <td class="p-6 text-slate-500 text-xs font-bold uppercase tracking-wider text-left">${clientName}</td>
+                        <td class="p-6 text-slate-500 text-xs font-black uppercase tracking-wider text-left">${clientName}</td>
                     </tr>
                 `;
                 list.insertAdjacentHTML('beforeend', row);
@@ -176,23 +175,25 @@
             document.getElementById('details-content').innerHTML = `
                 <div class="flex items-center justify-between border-b border-sky-500/20 pb-6 mb-6">
                     <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 bg-white rounded-xl p-1 shrink-0"><img src="${client.logo_url || ''}" class="w-full h-full object-contain"></div>
-                        <div><h2 class="text-2xl font-black text-sky-400 tracking-tighter uppercase">${client.client_name || 'Bilinmiyor'}</h2><p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Teknik Bilgi Kartı</p></div>
+                        <div class="w-16 h-16 bg-white rounded-xl p-1 shrink-0 shadow-lg shadow-sky-900/20"><img src="${client.logo_url || ''}" class="w-full h-full object-contain"></div>
+                        <div><h2 class="text-2xl font-black text-sky-400 tracking-tighter uppercase italic leading-none">${client.client_name || 'BELİRSİZ'}</h2><p class="text-[9px] text-slate-500 uppercase tracking-[0.4em] font-bold mt-1">DİJİTAL VARLIK KARTI</p></div>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3 mb-8">
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Cihaz Modeli</p><p class="text-sm font-bold text-slate-200">${attr.model || '---'}</p></div>
-                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Seri No</p><p class="text-sm font-bold text-slate-200 font-mono italic">${attr.serial || '---'}</p></div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Cihaz Modeli</p><p class="text-xs font-black text-slate-200 uppercase">${attr.model || '---'}</p></div>
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Seri No</p><p class="text-xs font-black text-slate-200 font-mono italic uppercase">${attr.serial || '---'}</p></div>
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Kapasite/Güç</p><p class="text-xs font-black text-slate-200 uppercase">${attr.cap || attr.power || '---'}</p></div>
+                    <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 uppercase font-bold mb-1">Üretim Yılı</p><p class="text-xs font-black text-slate-200 uppercase">${attr.year || '---'}</p></div>
                 </div>
                 <div class="space-y-4 mb-8">
-                    <h3 class="text-[10px] font-black text-sky-500 uppercase tracking-widest ml-1">📚 Dijital Arşiv</h3>
+                    <h3 class="text-[10px] font-black text-sky-500 uppercase tracking-[0.5em] ml-1 italic">DİJİTAL ARŞİV</h3>
                     <div class="grid grid-cols-2 gap-3">
-                        <a href="${attr.manual_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-center text-xs font-bold uppercase">📕 Kılavuz</a>
-                        <a href="${attr.ce_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-center text-xs font-bold uppercase">📜 Sertifika</a>
+                        <a href="${attr.manual_url || '#'}" target="_blank" class="p-5 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-center text-[10px] font-black uppercase tracking-widest shadow-lg">İNDİR: Kılavuz</a>
+                        <a href="${attr.ce_url || '#'}" target="_blank" class="p-5 bg-slate-800/80 rounded-2xl border border-slate-700 hover:border-sky-500/50 transition-all text-center text-[10px] font-black uppercase tracking-widest shadow-lg">GÖRÜNTÜLE: Sertifika</a>
                     </div>
                 </div>
-                <div class="p-4 bg-red-900/20 border border-red-500/30 rounded-3xl text-[9px] text-red-200 leading-relaxed italic">
-                    ⚠️ UYARI: Yetkisiz personel müdahalesi tehlikelidir. Bakım talimatlarını takip ediniz.
+                <div class="p-5 bg-red-950/30 border border-red-500/30 rounded-3xl text-[9px] text-red-200 leading-relaxed italic text-center uppercase tracking-widest">
+                    ⚠️ YETKİSİZ PERSONEL MÜDAHALESİ TEHLİKELİDİR. TÜM BAKIM PROTOKOLLERİNE UYULMALIDIR.
                 </div>
             `;
             document.getElementById('details-modal').classList.remove('opacity-0', 'pointer-events-none');
@@ -201,7 +202,7 @@
         function showMap(gps, name) {
             document.getElementById('map-modal').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('map-title').innerText = name;
-            document.getElementById('map-coords').innerText = "KOORDİNAT: " + gps;
+            document.getElementById('map-coords').innerText = "DATA: " + gps;
             const [lat, lng] = gps.split(',').map(Number);
             setTimeout(() => {
                 if (!leafletMap) {
@@ -213,7 +214,7 @@
         }
 
         function closeModal(id) { document.getElementById(id).classList.add('opacity-0', 'pointer-events-none'); }
-        async function resetItem(id) { if(confirm(id + " sıfırlanacak. Emin misiniz?")) { await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }}
+        async function resetItem(id) { if(confirm(id + " sıfırlanacak. Protokolü onaylıyor musunuz?")) { await aemi.from('tag_data').delete().eq('tag_id', id); await aemi.from('tags').update({ status: 'IDLE' }).eq('tag_id', id); location.reload(); }}
         
         init();
     </script>
