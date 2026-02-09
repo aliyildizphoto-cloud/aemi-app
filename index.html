@@ -3,185 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEMI | Aktivasyon</title>
+    <title>AEMI | Gateway</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-image: url('aemilabs-back.jpg'); background-size: cover; background-position: center; background-attachment: fixed; }
+        body { 
+            background-image: url('aemilabs-back.jpg'); /* Hafızaya alındı: aemilabs-back.jpg */
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; 
+        }
         .neon-box { animation: pulse-neon 3s infinite ease-in-out; }
-        @keyframes pulse-neon {
-            0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.3); border-color: rgba(14, 165, 233, 0.4); }
-            50% { box-shadow: 0 0 40px rgba(14, 165, 233, 0.6); border-color: rgba(14, 165, 233, 0.8); }
+        @keyframes pulse-neon { 
+            0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.3); border-color: rgba(14, 165, 233, 0.4); } 
+            50% { box-shadow: 0 0 40px rgba(14, 165, 233, 0.6); border-color: rgba(14, 165, 233, 0.8); } 
         }
     </style>
 </head>
 <body class="text-slate-200 min-h-screen flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/75 z-0"></div>
 
-    <div id="app" class="relative z-10 max-w-lg w-full bg-[#0f172a]/80 backdrop-blur-xl rounded-[3rem] p-8 border-2 border-sky-500/30 neon-box text-center">
+    <div id="app" class="relative z-10 max-w-lg w-full bg-[#0f172a]/85 backdrop-blur-xl rounded-[3rem] p-8 border-2 border-sky-500/30 neon-box text-center shadow-2xl">
+        
         <div id="client-header" class="mb-8 hidden">
-            <div id="client-logo" class="w-20 h-20 mx-auto mb-4 bg-white rounded-2xl p-2 flex items-center justify-center border border-sky-500/30 shadow-lg shadow-sky-900/20"></div>
-            <h1 id="client-name" class="text-2xl font-black text-sky-400 tracking-tighter uppercase italic leading-none">---</h1>
-            <p class="text-[9px] text-sky-500/60 tracking-[0.4em] font-bold font-mono mt-1">DİJİTAL İKİZ PROTOKOLÜ</p>
+            <div id="client-logo" class="w-24 h-24 mx-auto mb-4 bg-white rounded-2xl p-2 flex items-center justify-center border border-sky-500/30 shadow-lg shadow-sky-900/20"></div>
+            <h1 id="client-name" class="text-3xl font-black text-sky-400 tracking-tighter uppercase italic leading-none">---</h1>
+            <p class="text-[9px] text-sky-500/60 tracking-[0.4em] font-bold font-mono mt-2">INDUSTRIAL DIGITAL TWIN PROTOCOL</p>
         </div>
 
         <div id="status-area" class="space-y-6">
             <div class="flex flex-col items-center gap-4">
-                <div class="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-sky-400 font-mono tracking-widest text-xs">SİSTEM BAĞLANTISI KURULUYOR...</p>
+                <div class="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                <p class="text-sky-400 font-mono tracking-widest text-[10px] uppercase">Sistem Senkronizasyonu...</p>
             </div>
         </div>
 
         <div class="mt-8 pt-6 border-t border-sky-900/30">
-            <p class="text-slate-500/60 text-[9px] font-mono tracking-widest uppercase italic">Ünite Kimliği: <span id="display-id" class="text-sky-500 font-bold font-mono">---</span></p>
+            <p class="text-slate-500/60 text-[9px] font-mono tracking-widest uppercase italic font-bold">Secure Asset ID: <span id="display-id" class="text-sky-500 font-black">---</span></p>
         </div>
     </div>
 
     <script>
-        // --- AYARLARINIZ ---
 		const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
         const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
-        
-        let aemi;
+        const aemi = supabase.createClient(SB_URL, SB_KEY);
         const tagId = new URLSearchParams(window.location.search).get('id');
-        document.getElementById('display-id').innerText = tagId || 'YOK';
+        document.getElementById('display-id').innerText = tagId || 'ERR';
 
         async function init() {
-            const area = document.getElementById('status-area');
-            
-            // 1. Supabase Kontrolü (Beyaz ekranı engeller)
-            if (typeof supabase === 'undefined') {
-                area.innerHTML = "<div class='text-red-400 font-mono text-xs italic'>HATA: Veritabanı kütüphanesi yüklenemedi.</div>";
-                return;
-            }
-            aemi = supabase.createClient(SB_URL, SB_KEY);
-
-            if(!tagId) { renderError("GEÇERSİZ QR KOD"); return; }
-
+            if(!tagId) { renderError("QR GEÇERSİZ"); return; }
             try {
-                // 2. Varlığı ve Müşteriyi Çek (web_url sütunu kaldırıldı)
-                const { data, error } = await aemi
-                    .from('tags')
-                    .select('*, clients!left(client_name, industry, logo_url), tag_data(*)')
-                    .ilike('tag_id', tagId);
-                
-                if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    renderError(`${tagId} SİSTEMDE TANIMLI DEĞİL`);
-                    return;
-                }
+                const { data, error } = await aemi.from('tags').select('*, clients!left(*), tag_data(*)').ilike('tag_id', tagId);
+                if (error || !data.length) { renderError("VARLIK TANIMSIZ"); return; }
 
                 const tag = data[0];
-                const industry = tag.clients?.industry || 'Genel';
-
-                // Müşteri Bilgilerini Bas
+                const client = tag.clients || {};
+                
+                // Müşteri Reklam ve Header
                 document.getElementById('client-header').classList.remove('hidden');
-                document.getElementById('client-name').innerText = tag.clients?.client_name || "Müşteri Atanmamış";
-                if(tag.clients?.logo_url) {
-                    document.getElementById('client-logo').innerHTML = `<img src="${tag.clients.logo_url}" class="max-h-full object-contain">`;
-                }
+                document.getElementById('client-name').innerText = client.client_name || "AEMI LABS";
+                if(client.logo_url) document.getElementById('client-logo').innerHTML = `<img src="${client.logo_url}" class="max-h-full object-contain">`;
 
-                // 3. Duruma Göre Form Göster
-                if (tag.status === 'IDLE') {
-                    renderFactoryForm(tag, industry);
-                } else if (tag.status === 'FACTORY') {
-                    renderSiteForm(tag);
+                if (tag.status === 'ACTIVE') {
+                    renderActiveCard(tag); // QR okutan herkesin göreceği dijital künye
                 } else {
-                    renderActiveView(tag.tag_data[0]);
+                    renderAuthScreen(tag); // Sadece personelin göreceği şifreli giriş
                 }
-
-            } catch (e) {
-                console.error(e);
-                renderError("BAĞLANTI HATASI: " + e.message);
-            }
+            } catch (e) { renderError("BAĞLANTI HATASI"); }
         }
 
-        // --- FORM FONKSİYONLARI ---
-        function renderFactoryForm(tag, industry) {
-            let fields = "";
-            if(industry === 'Makine') { //
-                fields = `
-                    <input id="f_model" type="text" placeholder="Pres Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-sm font-mono">
-                    <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-sm font-mono italic">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input id="f_cap" type="text" placeholder="Kapasite (Ton)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
-                        <input id="f_stroke" type="text" placeholder="Strok (mm)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
+        // --- GÜVENLİK: ŞİFRE SORGULAMA ---
+        function renderAuthScreen(tag) {
+            document.getElementById('status-area').innerHTML = `
+                <div class="p-6 bg-sky-950/20 border border-sky-500/30 rounded-3xl space-y-5">
+                    <div class="text-left">
+                        <p class="text-[10px] text-sky-400 font-black tracking-widest uppercase italic mb-1">Kimlik Doğrulama</p>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Lütfen ${tag.clients.client_name} aktivasyon şifresini giriniz.</p>
                     </div>
-                `;
-            } else { //
-                fields = `
-                    <input id="f_model" type="text" placeholder="Panel/İnvertör Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-sm font-mono">
-                    <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-sm font-mono italic">
-                `;
-            }
-
-            document.getElementById('status-area').innerHTML = `
-                <div class="bg-sky-500/10 p-3 rounded-xl border border-sky-500/30 mb-4 font-black text-[10px] uppercase tracking-widest text-sky-400 italic">FABRİKA KAYIT PROTOKOLÜ</div>
-                <div class="space-y-3 text-left">
-                    ${fields}
-                    <button onclick="saveFactory('${industry}')" class="w-full bg-sky-600 hover:bg-sky-500 py-5 rounded-2xl font-black tracking-widest text-xs transition-all border border-sky-400/50 shadow-lg shadow-sky-900/40">KAYDI TAMAMLA</button>
+                    <input id="auth_input" type="password" placeholder="••••" class="w-full p-5 bg-slate-900 border border-slate-700 rounded-2xl text-center text-sky-400 text-2xl tracking-[1em] focus:border-sky-500 outline-none transition-all">
+                    <button onclick="checkAuth('${tag.clients.auth_code}', '${tag.status}', '${tag.clients.industry}')" class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 py-5 rounded-2xl font-black text-xs tracking-widest shadow-xl transition-all uppercase italic border border-sky-400/30">PROTOKOLÜ BAŞLAT</button>
                 </div>
             `;
         }
 
-        async function saveFactory(ind) {
-            const data = {
-                model: document.getElementById('f_model').value,
-                serial: document.getElementById('f_serial').value,
-                industry: ind,
-                cap: document.getElementById('f_cap')?.value || '',
-                stroke: document.getElementById('f_stroke')?.value || '',
-                factory_date: new Date().toISOString()
-            };
-            if(!data.model || !data.serial) return alert("Zorunlu alanları doldurun!");
-            
-            await aemi.from('tag_data').insert([{ tag_id: tagId, attributes: data }]);
-            await aemi.from('tags').update({ status: 'FACTORY' }).eq('tag_id', tagId);
-            location.reload();
+        function checkAuth(correctCode, status, industry) {
+            const input = document.getElementById('auth_input').value;
+            if (input === correctCode) {
+                status === 'IDLE' ? renderFactoryForm(industry) : renderSiteForm();
+            } else { alert("YETKİSİZ ERİŞİM: Şifre Hatalı."); }
         }
 
-        function renderSiteForm(tag) {
+        // --- DİJİTAL KÜNYE EKRANI (HALKA AÇIK) ---
+        function renderActiveCard(tag) {
+            const attr = tag.tag_data[0]?.attributes || {};
+            const client = tag.clients || {};
+
             document.getElementById('status-area').innerHTML = `
-                <div class="bg-green-500/10 p-4 rounded-xl border border-green-500/30 mb-4 text-left">
-                    <p class="text-green-400 font-black text-[10px] uppercase tracking-widest italic">SAHA AKTİVASYON AŞAMASI</p>
-                    <p class="text-[9px] text-slate-500 mt-1 uppercase font-bold">MODEL: ${tag.tag_data[0].attributes.model}</p>
-                </div>
-                <input id="s_name" type="text" placeholder="Saha Varlık Adı (Örn: Masa-05)" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 outline-none focus:border-sky-500 text-sm font-mono mb-4">
-                <button onclick="saveSite()" class="w-full bg-green-600 hover:bg-green-500 py-5 rounded-2xl font-black tracking-widest text-xs transition-all border border-green-400/50 shadow-lg shadow-green-900/40">KONUMU AL VE AKTİFLEŞTİR</button>
-            `;
-        }
+                <div class="text-left space-y-6">
+                    <div class="grid grid-cols-2 gap-3 font-mono">
+                        <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Model</p><p class="text-xs font-black text-white uppercase italic">${attr.model || '---'}</p></div>
+                        <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Seri No</p><p class="text-xs font-black text-white italic">${attr.serial || '---'}</p></div>
+                        <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Kapasite / Güç</p><p class="text-xs font-black text-white uppercase">${attr.cap || attr.power || '---'}</p></div>
+                        <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Kurulum</p><p class="text-xs font-black text-white uppercase">${attr.install_date ? attr.install_date.split('T')[0] : '---'}</p></div>
+                    </div>
 
-        async function saveSite() {
-            const name = document.getElementById('s_name').value;
-            if(!name) return alert("Saha adı girin!");
-            
-            let gps = "Konum İzni Yok";
-            try {
-                const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000}));
-                gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-            } catch (e) { console.warn("GPS Yok"); }
+                    <div class="space-y-3">
+                        <p class="text-[9px] text-slate-500 font-black tracking-widest ml-1 uppercase">Sertifikalar ve Kılavuzlar</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <a href="${attr.manual_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl hover:border-sky-500/50 transition-all text-center">
+                                <span class="text-xl mb-2 block">📕</span><p class="text-[10px] font-black italic uppercase">Kılavuz</p>
+                            </a>
+                            <a href="${attr.ce_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl hover:border-sky-500/50 transition-all text-center">
+                                <span class="text-xl mb-2 block">📜</span><p class="text-[10px] font-black italic uppercase">CE/TSE</p>
+                            </a>
+                        </div>
+                    </div>
 
-            const { data: cur } = await aemi.from('tag_data').select('*').eq('tag_id', tagId).single();
-            const newAttr = { ...cur.attributes, asset_name: name, gps_location: gps, install_date: new Date().toISOString() };
-
-            await aemi.from('tag_data').update({ attributes: newAttr }).eq('tag_id', tagId);
-            await aemi.from('tags').update({ status: 'ACTIVE' }).eq('tag_id', tagId);
-            location.reload();
-        }
-
-        function renderActiveView(data) {
-            document.getElementById('status-area').innerHTML = `
-                <div class="py-6">
-                    <div class="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50 shadow-lg shadow-green-900/30"><span class="text-2xl">✓</span></div>
-                    <h2 class="text-2xl font-black text-green-400 tracking-tighter italic uppercase">VARLIK AKTİF</h2>
-                    <p class="text-[10px] text-slate-500 mt-2 font-mono italic">${data.attributes.asset_name} | ${data.attributes.model}</p>
+                    <div class="p-5 bg-red-950/30 border border-red-500/30 rounded-[2rem] text-center">
+                        <p class="text-[10px] text-red-500 font-black tracking-widest uppercase mb-1">⚠️ GÜVENLİK UYARISI</p>
+                        <p class="text-[9px] text-red-200/60 italic leading-relaxed uppercase">Yetkisiz müdahale tehlikelidir. Teknik destek için: <br> <span class="text-sky-400 font-bold">${client.web_url || 'www.aemilabs.com'}</span></p>
+                    </div>
                 </div>
             `;
         }
 
         function renderError(msg) { 
-            document.getElementById('status-area').innerHTML = `<div class='p-6 bg-red-950/30 text-red-400 rounded-3xl border border-red-500/30 text-[10px] font-black italic uppercase tracking-widest leading-relaxed'>${msg}</div>`; 
+            document.getElementById('status-area').innerHTML = `<div class='p-8 bg-red-950/40 text-red-400 rounded-3xl border border-red-500/30 text-[10px] font-black italic uppercase tracking-widest'>${msg}</div>`; 
         }
 
         init();
