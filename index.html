@@ -1,117 +1,55 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AEMI LABS | Varlık Aktivasyonu</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            background-image: url('aemilabs-back.jpg'); /* Değiştir */
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-        @keyframes pulse-neon {
-            0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.3), inset 0 0 20px rgba(14, 165, 233, 0.1); border-color: rgba(14, 165, 233, 0.4); }
-            50% { box-shadow: 0 0 40px rgba(14, 165, 233, 0.6), inset 0 0 40px rgba(14, 165, 233, 0.2); border-color: rgba(14, 165, 233, 0.8); }
-        }
-        .neon-box { animation: pulse-neon 3s infinite ease-in-out; }
-    </style>
-</head>
-<body class="text-slate-200 min-h-screen flex items-center justify-center p-4">
+<script>
+  	const AEMI_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
+    const AEMI_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
+    const aemi = supabase.createClient(SB_URL, SB_KEY);
 
-    <div class="absolute inset-0 bg-black/75 z-0"></div>
+    const tagId = new URLSearchParams(window.location.search).get('id');
+    document.getElementById('display-id').innerText = tagId || 'ERR';
 
-    <div id="app" class="relative z-10 max-w-md w-full bg-[#0f172a]/70 backdrop-blur-xl rounded-[3rem] p-8 border-2 border-sky-500/30 neon-box text-center">
-        
-        <div class="mb-12">
-            <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-sky-300 to-blue-600 tracking-tighter filter drop-shadow-[0_0_10px_rgba(14,165,233,0.8)]">AEMI LABS</h1>
-            <div class="h-0.5 w-24 mx-auto bg-sky-500/50 my-3"></div>
-            <p class="text-sky-400/80 text-[9px] uppercase tracking-[0.3em] font-bold font-mono">Endüstriyel Takip Protokolü</p>
-        </div>
-
-        <div id="status-area" class="space-y-6 min-h-[250px] flex flex-col justify-center items-center">
-            <div class="flex flex-col items-center space-y-4 animate-pulse">
-                 <div class="relative w-16 h-16">
-                    <div class="absolute inset-0 rounded-full border-4 border-sky-900/50"></div>
-                    <div class="absolute inset-0 rounded-full border-t-4 border-sky-400 animate-spin"></div>
-                 </div>
-                <p class="text-sky-300/70 text-xs tracking-widest font-mono">SİSTEM BAĞLANTISI KURULUYOR...</p>
-            </div>
-        </div>
-
-        <div class="mt-10 pt-6 border-t border-sky-900/30">
-             <p class="text-slate-500/60 text-[9px] font-mono tracking-widest">FIELD UNIT ID: <span id="unit-id" class="text-sky-500">---</span></p>
-        </div>
-    </div>
-
-    <script>
-        // --- ANAHTARLARINI GİR ---
-        const AEMI_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
-        const AEMI_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
-        
-        const aemiClient = supabase.createClient(AEMI_URL, AEMI_KEY);
-        const params = new URLSearchParams(window.location.search);
-        const tagId = params.get('id');
-        document.getElementById('unit-id').innerText = tagId || 'UNKNOWN';
-
-      async function init() {
+    async function init() {
+        const area = document.getElementById('status-area');
         if(!tagId) { renderError("GEÇERSİZ QR KOD"); return; }
 
-        // Sektör bilgisini çekiyoruz (industry sütunu kritik)
-        const { data: tag, error } = await aemi.from('tags').select('*, clients(*), tag_data(*)').ilike('tag_id', tagId).single();
-        
-        if (error || !tag) { renderError("VARLIK SİSTEMDE TANIMLI DEĞİL"); return; }
+        try {
+            // Sorguyu daha güvenli hale getirdik (single yerine normal select)
+            const { data, error } = await aemi
+                .from('tags')
+                .select('*, clients!left(*), tag_data(*)')
+                .ilike('tag_id', tagId);
+            
+            if (error) throw error;
 
-        document.getElementById('client-header').classList.remove('hidden');
-        document.getElementById('client-name').innerText = tag.clients.client_name;
-        const industry = tag.clients.industry; // 'GES' veya 'Makine'
+            // Varlık bulunamadıysa
+            if (!data || data.length === 0) {
+                renderError("VARLIK SİSTEMDE TANIMLI DEĞİL");
+                return;
+            }
 
-        if (tag.status === 'IDLE') {
-            renderFactoryForm(tag, industry); // Sektöre özel fabrika formu
-        } else if (tag.status === 'FACTORY') {
-            renderSiteForm(tag); // Stoktaki ürünü sahaya kurma
-        } else {
-            renderActiveView(tag.tag_data[0]);
+            const tag = data[0];
+            const industry = tag.clients?.industry || 'Genel'; //
+
+            // Header ve Logo Ayarı
+            document.getElementById('client-header').classList.remove('hidden');
+            document.getElementById('client-name').innerText = tag.clients?.client_name || "Bilinmeyen Müşteri";
+            if(tag.clients?.logo_url) {
+                document.getElementById('client-logo').innerHTML = `<img src="${tag.clients.logo_url}" class="max-h-full object-contain">`;
+            }
+
+            // Durum Kontrolü
+            if (tag.status === 'IDLE') {
+                renderFactoryForm(tag, industry);
+            } else if (tag.status === 'FACTORY') {
+                renderSiteForm(tag);
+            } else {
+                renderActiveView(tag.tag_data[0]);
+            }
+
+        } catch (e) {
+            console.error("Aktivasyon Hatası:", e);
+            renderError("BAĞLANTI HATASI: " + e.message);
         }
     }
 
-    function renderFactoryForm(tag, industry) {
-        let formHtml = "";
-        
-        if(industry === 'Makine') { // Pres Üreticisi Formu
-            formHtml = `
-                <input id="f_model" type="text" placeholder="Pres Modeli" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-                <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-                <div class="grid grid-cols-2 gap-2">
-                    <input id="f_cap" type="text" placeholder="Kapasite (Ton)" class="p-3 bg-slate-900 rounded-xl border border-slate-700 text-[10px]">
-                    <input id="f_stroke" type="text" placeholder="Strok (mm)" class="p-3 bg-slate-900 rounded-xl border border-slate-700 text-[10px]">
-                </div>
-                <input id="f_motor" type="text" placeholder="Motor Gücü & Hızı" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-                <input id="f_year" type="number" placeholder="Üretim Yılı" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-            `;
-        } else { // GES Formu
-            formHtml = `
-                <input id="f_model" type="text" placeholder="Panel/İnvertör Modeli" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-                <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-                <input id="f_voc" type="text" placeholder="Voc / Isc Değerleri" class="w-full p-3 bg-slate-900 rounded-xl border border-slate-700 text-sm">
-            `;
-        }
-
-        document.getElementById('status-area').innerHTML = `
-            <div class="bg-sky-500/10 p-3 rounded-xl border border-sky-500/30 mb-4 font-mono text-[10px]">
-                PROTOKOL: FABRİKA KAYDI (${industry})
-            </div>
-            <div class="space-y-3 text-left">
-                ${formHtml}
-                <button onclick="saveFactoryData('${industry}')" class="w-full bg-sky-600 py-4 rounded-xl font-black text-xs">STOK KAYDINI TAMAMLA</button>
-            </div>
-        `;
-    }
-
-    // ... (saveFactoryData fonksiyonunda eklenen alanları yakalayıp JSON'a ekliyoruz) ...
+    // renderFactoryForm, renderSiteForm ve diğer fonksiyonlar aynı kalacak...
+    init();
 </script>
-</body>
-</html>
