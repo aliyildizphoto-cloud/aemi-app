@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { 
-            background-image: url('aemilabs-back.jpg'); /* Hafızaya alındı: aemilabs-back.jpg */
+            background-image: url('aemilabs-back.jpg'); 
             background-size: cover; 
             background-position: center; 
             background-attachment: fixed; 
@@ -23,10 +23,10 @@
 <body class="text-slate-200 min-h-screen flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/75 z-0"></div>
 
-    <div id="app" class="relative z-10 max-w-lg w-full bg-[#0f172a]/85 backdrop-blur-xl rounded-[3rem] p-8 border-2 border-sky-500/30 neon-box text-center shadow-2xl">
+    <div id="app" class="relative z-10 max-w-lg w-full bg-[#0f172a]/90 backdrop-blur-xl rounded-[3rem] p-8 border-2 border-sky-500/30 neon-box text-center shadow-2xl">
         
-        <div id="client-header" class="mb-8 hidden">
-            <div id="client-logo" class="w-24 h-24 mx-auto mb-4 bg-white rounded-2xl p-2 flex items-center justify-center border border-sky-500/30 shadow-lg shadow-sky-900/20"></div>
+        <div id="client-header" class="mb-8 hidden text-center">
+            <div id="client-logo" class="w-24 h-24 mx-auto mb-4 bg-white rounded-2xl p-2 flex items-center justify-center border border-sky-500/30 shadow-lg"></div>
             <h1 id="client-name" class="text-3xl font-black text-sky-400 tracking-tighter uppercase italic leading-none">---</h1>
             <p class="text-[9px] text-sky-500/60 tracking-[0.4em] font-bold font-mono mt-2">INDUSTRIAL DIGITAL TWIN PROTOCOL</p>
         </div>
@@ -34,21 +34,24 @@
         <div id="status-area" class="space-y-6">
             <div class="flex flex-col items-center gap-4">
                 <div class="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                <p class="text-sky-400 font-mono tracking-widest text-[10px] uppercase">Sistem Senkronizasyonu...</p>
+                <p class="text-sky-400 font-mono tracking-widest text-[10px] uppercase">Protokol Yükleniyor...</p>
             </div>
         </div>
 
         <div class="mt-8 pt-6 border-t border-sky-900/30">
-            <p class="text-slate-500/60 text-[9px] font-mono tracking-widest uppercase italic font-bold">Secure Asset ID: <span id="display-id" class="text-sky-500 font-black">---</span></p>
+            <p class="text-slate-500/60 text-[9px] font-mono tracking-widest uppercase italic font-bold">SECURE ID: <span id="display-id" class="text-sky-500 font-black">---</span></p>
         </div>
     </div>
 
     <script>
+        // --- AYARLAR ---
 		const SB_URL = 'https://ixymugzdwvblnltxparg.supabase.co';
         const SB_KEY = 'sb_publishable_20pACyxu-POCbY0lZcJGvQ_uz9vbJbP';
         const aemi = supabase.createClient(SB_URL, SB_KEY);
         const tagId = new URLSearchParams(window.location.search).get('id');
         document.getElementById('display-id').innerText = tagId || 'ERR';
+
+        let currentTag = null; // Verileri saklamak için global obje
 
         async function init() {
             if(!tagId) { renderError("QR GEÇERSİZ"); return; }
@@ -56,44 +59,134 @@
                 const { data, error } = await aemi.from('tags').select('*, clients!left(*), tag_data(*)').ilike('tag_id', tagId);
                 if (error || !data.length) { renderError("VARLIK TANIMSIZ"); return; }
 
-                const tag = data[0];
-                const client = tag.clients || {};
+                currentTag = data[0]; // Gelen veriyi hafızaya al
+                const client = currentTag.clients || {};
                 
-                // Müşteri Reklam ve Header
+                // Başlık Güncelle
                 document.getElementById('client-header').classList.remove('hidden');
                 document.getElementById('client-name').innerText = client.client_name || "AEMI LABS";
                 if(client.logo_url) document.getElementById('client-logo').innerHTML = `<img src="${client.logo_url}" class="max-h-full object-contain">`;
 
-                if (tag.status === 'ACTIVE') {
-                    renderActiveCard(tag); // QR okutan herkesin göreceği dijital künye
+                // Durum Kontrolü
+                if (currentTag.status === 'ACTIVE') {
+                    renderActiveCard(currentTag);
                 } else {
-                    renderAuthScreen(tag); // Sadece personelin göreceği şifreli giriş
+                    renderAuthScreen(currentTag);
                 }
             } catch (e) { renderError("BAĞLANTI HATASI"); }
         }
 
-        // --- GÜVENLİK: ŞİFRE SORGULAMA ---
+        // --- GÜVENLİK EKRANI ---
         function renderAuthScreen(tag) {
             document.getElementById('status-area').innerHTML = `
-                <div class="p-6 bg-sky-950/20 border border-sky-500/30 rounded-3xl space-y-5">
-                    <div class="text-left">
-                        <p class="text-[10px] text-sky-400 font-black tracking-widest uppercase italic mb-1">Kimlik Doğrulama</p>
-                        <p class="text-[9px] text-slate-500 uppercase font-bold">Lütfen ${tag.clients.client_name} aktivasyon şifresini giriniz.</p>
+                <div class="p-6 bg-sky-950/20 border border-sky-500/30 rounded-3xl space-y-5 text-left">
+                    <div>
+                        <p class="text-[10px] text-sky-400 font-black tracking-widest uppercase italic mb-1">YETKİ KONTROLÜ</p>
+                        <p class="text-[9px] text-slate-500 uppercase font-bold">Aktivasyon kodunu girip 'Enter'a basınız.</p>
                     </div>
-                    <input id="auth_input" type="password" placeholder="••••" class="w-full p-5 bg-slate-900 border border-slate-700 rounded-2xl text-center text-sky-400 text-2xl tracking-[1em] focus:border-sky-500 outline-none transition-all">
-                    <button onclick="checkAuth('${tag.clients.auth_code}', '${tag.status}', '${tag.clients.industry}')" class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 py-5 rounded-2xl font-black text-xs tracking-widest shadow-xl transition-all uppercase italic border border-sky-400/30">PROTOKOLÜ BAŞLAT</button>
+                    <input id="auth_input" type="password" placeholder="••••" 
+                        class="w-full p-5 bg-slate-900 border border-slate-700 rounded-2xl text-center text-sky-400 text-2xl tracking-[1em] focus:border-sky-500 outline-none transition-all"
+                        onkeypress="handleEnter(event)">
+                    <button onclick="checkAuth()" class="w-full bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 py-5 rounded-2xl font-black text-xs tracking-widest shadow-xl transition-all uppercase italic border border-sky-400/30">GİRİŞ YAP</button>
+                </div>
+            `;
+            document.getElementById('auth_input').focus();
+        }
+
+        // Enter Tuşu Protokolü
+        function handleEnter(e) {
+            if (e.key === 'Enter') { checkAuth(); }
+        }
+
+        function checkAuth() {
+            const input = document.getElementById('auth_input');
+            const correctCode = currentTag.clients.auth_code;
+            
+            if (input.value === correctCode) {
+                // Doğru şifre: Formu sektöre göre getir
+                currentTag.status === 'IDLE' ? renderFactoryForm(currentTag.clients.industry) : renderSiteForm();
+            } else {
+                alert("HATALI ŞİFRE! ERİŞİM REDDEDİLDİ.");
+                input.value = ''; // Girişi temizle
+                input.focus();    // Tekrar odaklan
+            }
+        }
+
+        // --- FABRİKA FORMU (Örn: TEST-05 için Makine/Pres) ---
+        function renderFactoryForm(industry) {
+            let fields = "";
+            if(industry === 'Makine') {
+                fields = `
+                    <input id="f_model" type="text" placeholder="Pres Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono uppercase">
+                    <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono italic">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input id="f_cap" type="text" placeholder="Kapasite (Ton)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
+                        <input id="f_stroke" type="text" placeholder="Strok (mm)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
+                    </div>
+                `;
+            } else {
+                fields = `
+                    <input id="f_model" type="text" placeholder="Panel/İnvertör Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono">
+                    <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono italic">
+                `;
+            }
+
+            document.getElementById('status-area').innerHTML = `
+                <div class="bg-sky-500/10 p-3 rounded-xl border border-sky-500/30 mb-4 font-black text-[10px] uppercase tracking-widest text-sky-400 italic">AŞAMA 1: FABRİKA VERİ GİRİŞİ</div>
+                <div class="space-y-3 text-left">
+                    ${fields}
+                    <button onclick="saveFactory('${industry}')" class="w-full bg-sky-600 py-4 rounded-xl font-black text-xs tracking-widest">KAYDET VE STOKLA</button>
                 </div>
             `;
         }
 
-        function checkAuth(correctCode, status, industry) {
-            const input = document.getElementById('auth_input').value;
-            if (input === correctCode) {
-                status === 'IDLE' ? renderFactoryForm(industry) : renderSiteForm();
-            } else { alert("YETKİSİZ ERİŞİM: Şifre Hatalı."); }
+        // ... (saveFactory, renderSiteForm, saveSite ve renderActiveCard fonksiyonları önceki sürümlerle aynı kalsın) ...
+
+        async function saveFactory(ind) {
+            const data = {
+                model: document.getElementById('f_model').value,
+                serial: document.getElementById('f_serial').value,
+                industry: ind,
+                cap: document.getElementById('f_cap')?.value || '',
+                stroke: document.getElementById('f_stroke')?.value || '',
+                factory_date: new Date().toISOString()
+            };
+            if(!data.model || !data.serial) return alert("Zorunlu alanları doldurun!");
+            
+            await aemi.from('tag_data').insert([{ tag_id: tagId, attributes: data }]);
+            await aemi.from('tags').update({ status: 'FACTORY' }).eq('tag_id', tagId);
+            location.reload();
         }
 
-        // --- DİJİTAL KÜNYE EKRANI (HALKA AÇIK) ---
+        function renderSiteForm() {
+            document.getElementById('status-area').innerHTML = `
+                <div class="bg-green-500/10 p-4 rounded-xl border border-green-500/30 mb-4 text-left">
+                    <p class="text-green-400 font-black text-[10px] uppercase tracking-widest italic">AŞAMA 2: SAHA KURULUM ONAYI</p>
+                    <p class="text-[9px] text-slate-500 mt-1 uppercase font-bold">MODEL: ${currentTag.tag_data[0].attributes.model}</p>
+                </div>
+                <input id="s_name" type="text" placeholder="Varlık Saha Adı (Örn: Hat-03)" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 outline-none text-sm font-mono mb-4 uppercase">
+                <button onclick="saveSite()" class="w-full bg-green-600 hover:bg-green-500 py-5 rounded-2xl font-black tracking-widest text-xs transition-all border border-green-400/50 shadow-lg shadow-green-900/40">KONUMU AL VE TAMAMLA</button>
+            `;
+        }
+
+        async function saveSite() {
+            const name = document.getElementById('s_name').value;
+            if(!name) return alert("Lütfen saha adını girin!");
+            
+            let gps = "0,0";
+            try {
+                const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {timeout: 5000}));
+                gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+            } catch (e) { console.warn("GPS Yok"); }
+
+            const { data: cur } = await aemi.from('tag_data').select('*').eq('tag_id', tagId).single();
+            const newAttr = { ...cur.attributes, asset_name: name, gps_location: gps, install_date: new Date().toISOString() };
+
+            await aemi.from('tag_data').update({ attributes: newAttr }).eq('tag_id', tagId);
+            await aemi.from('tags').update({ status: 'ACTIVE' }).eq('tag_id', tagId);
+            location.reload();
+        }
+
         function renderActiveCard(tag) {
             const attr = tag.tag_data[0]?.attributes || {};
             const client = tag.clients || {};
@@ -104,24 +197,18 @@
                         <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Model</p><p class="text-xs font-black text-white uppercase italic">${attr.model || '---'}</p></div>
                         <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Seri No</p><p class="text-xs font-black text-white italic">${attr.serial || '---'}</p></div>
                         <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Kapasite / Güç</p><p class="text-xs font-black text-white uppercase">${attr.cap || attr.power || '---'}</p></div>
-                        <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Kurulum</p><p class="text-xs font-black text-white uppercase">${attr.install_date ? attr.install_date.split('T')[0] : '---'}</p></div>
+                        <div class="p-3 bg-slate-900/50 rounded-2xl border border-slate-800"><p class="text-[8px] text-sky-500 font-bold uppercase mb-1">Durum</p><p class="text-xs font-black text-green-400 uppercase tracking-widest">${tag.status}</p></div>
                     </div>
-
                     <div class="space-y-3">
-                        <p class="text-[9px] text-slate-500 font-black tracking-widest ml-1 uppercase">Sertifikalar ve Kılavuzlar</p>
+                        <p class="text-[9px] text-slate-500 font-black tracking-widest ml-1 uppercase">Döküman Arşivi</p>
                         <div class="grid grid-cols-2 gap-3">
-                            <a href="${attr.manual_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl hover:border-sky-500/50 transition-all text-center">
-                                <span class="text-xl mb-2 block">📕</span><p class="text-[10px] font-black italic uppercase">Kılavuz</p>
-                            </a>
-                            <a href="${attr.ce_url || '#'}" target="_blank" class="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl hover:border-sky-500/50 transition-all text-center">
-                                <span class="text-xl mb-2 block">📜</span><p class="text-[10px] font-black italic uppercase">CE/TSE</p>
-                            </a>
+                            <a href="${attr.manual_url || '#'}" target="_blank" class="p-4 bg-slate-800 border border-slate-700 rounded-2xl text-center"><span class="text-xl mb-1 block">📕</span><p class="text-[10px] font-black uppercase tracking-tighter">Kılavuz</p></a>
+                            <a href="${attr.ce_url || '#'}" target="_blank" class="p-4 bg-slate-800 border border-slate-700 rounded-2xl text-center"><span class="text-xl mb-1 block">📜</span><p class="text-[10px] font-black uppercase tracking-tighter">Sertifika</p></a>
                         </div>
                     </div>
-
-                    <div class="p-5 bg-red-950/30 border border-red-500/30 rounded-[2rem] text-center">
-                        <p class="text-[10px] text-red-500 font-black tracking-widest uppercase mb-1">⚠️ GÜVENLİK UYARISI</p>
-                        <p class="text-[9px] text-red-200/60 italic leading-relaxed uppercase">Yetkisiz müdahale tehlikelidir. Teknik destek için: <br> <span class="text-sky-400 font-bold">${client.web_url || 'www.aemilabs.com'}</span></p>
+                    <div class="p-5 bg-red-950/30 border border-red-500/30 rounded-3xl text-center uppercase">
+                        <p class="text-[10px] text-red-500 font-black tracking-widest mb-1">⚠️ GÜVENLİK PROTOKOLÜ</p>
+                        <p class="text-[8px] text-red-200/60 italic leading-relaxed">Yetkisiz müdahale yasaktır. Bakım dökümanlarını inceleyiniz.</p>
                     </div>
                 </div>
             `;
