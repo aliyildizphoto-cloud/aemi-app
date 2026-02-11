@@ -41,6 +41,9 @@
                     <p class="text-[9px] text-slate-500 uppercase font-bold tracking-widest">TOPLAM VARLIK</p>
                     <p id="stat-total" class="text-2xl font-black text-sky-400 font-mono leading-none mt-1">0</p>
                 </div>
+				<button onclick="exportForLaser()" class="bg-green-600/20 text-green-400 p-4 rounded-2xl border border-green-500/30 hover:bg-green-600/40 transition-all font-bold text-xs uppercase italic shadow-lg">
+    📥 Lazer İçin Aktar (CSV)
+</button>
                 <button onclick="location.reload()" class="bg-slate-800 p-4 rounded-2xl hover:bg-slate-700 transition-all border border-slate-700 shadow-lg">🔄</button>
             </div>
         </div>
@@ -125,7 +128,37 @@
                 document.getElementById('tag-list').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-400 uppercase font-bold italic">Bağlantı Hatası: ${e.message}</td></tr>`;
             }
         }
+	function exportForLaser() {
+    if (fetchedTags.length === 0) return alert("Dışa aktarılacak veri bulunamadı!");
 
+    // CSV Başlıkları (Lazer yazılımının anlayacağı sütunlar)
+    let csvContent = "data:text/csv;charset=utf-8,ID,VARLIK_ADI,MODEL,SERI_NO,QR_LINK\n";
+
+    fetchedTags.forEach(tag => {
+        const attr = tag.tag_data[0]?.attributes || {};
+        const qrLink = `https://aemi-app.vercel.app/?id=${tag.tag_id}`; // Senin alan adın
+        
+        // Satır verilerini oluştur
+        const row = [
+            tag.tag_id,
+            attr.asset_name || "Tanimsiz",
+            attr.model || "---",
+            attr.serial || "---",
+            qrLink
+        ].join(",");
+        
+        csvContent += row + "\n";
+    });
+
+    // Dosyayı indir
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `AEMI_Lazer_Liste_${cID}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
         function renderTable() {
             const list = document.getElementById('tag-list');
             list.innerHTML = '';
