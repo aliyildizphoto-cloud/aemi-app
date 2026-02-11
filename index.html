@@ -98,49 +98,88 @@
             if (e.key === 'Enter') { checkAuth(); }
         }
 
-        function checkAuth() {
-            const input = document.getElementById('auth_input');
-            const correctCode = currentTag.clients.auth_code;
-            
-            if (input.value === correctCode) {
-                // Doğru şifre: Formu sektöre göre getir
-                currentTag.status === 'IDLE' ? renderFactoryForm(currentTag.clients.industry) : renderSiteForm();
-            } else {
-                alert("HATALI ŞİFRE! ERİŞİM REDDEDİLDİ.");
-                input.value = ''; // Girişi temizle
-                input.focus();    // Tekrar odaklan
-            }
-        }
+      function checkAuth() {
+    const input = document.getElementById('auth_input');
+    const correctCode = currentTag.clients.auth_code; //
+    
+    if (input.value === correctCode) {
+        // Parametresiz çağırıyoruz, kendi içinden bakacak
+        currentTag.status === 'IDLE' ? renderFactoryForm() : renderSiteForm();
+    } else {
+        alert("HATALI ŞİFRE!");
+        input.value = '';
+        input.focus();
+    }
+}
 
         // --- FABRİKA FORMU (Örn: TEST-05 için Makine/Pres) ---
-        function renderFactoryForm(industry) {
-            let fields = "";
-            if(industry === 'Makine') {
-                fields = `
-                    <input id="f_model" type="text" placeholder="Pres Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono uppercase">
-                    <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono italic">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input id="f_cap" type="text" placeholder="Kapasite (Ton)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
-                        <input id="f_stroke" type="text" placeholder="Strok (mm)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
-                    </div>
-                `;
-            } else {
-                fields = `
-                    <input id="f_model" type="text" placeholder="Panel/İnvertör Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono">
-                    <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono italic">
-                `;
-            }
+        // --- YENİ NESİL AKILLI FABRİKA FORMU ---
+function renderFactoryForm() {
+    const client = currentTag.clients || {}; //
+    const industry = client.industry;        // Örn: 'GES' veya 'Makine'
+    const sub = client.sub_industry;        // Örn: 'Konstrüksiyon' veya NULL
+    
+    let fields = "";
 
-            document.getElementById('status-area').innerHTML = `
-                <div class="bg-sky-500/10 p-3 rounded-xl border border-sky-500/30 mb-4 font-black text-[10px] uppercase tracking-widest text-sky-400 italic">AŞAMA 1: FABRİKA VERİ GİRİŞİ</div>
-                <div class="space-y-3 text-left">
-                    ${fields}
-                    <button onclick="saveFactory('${industry}')" class="w-full bg-sky-600 py-4 rounded-xl font-black text-xs tracking-widest">KAYDET VE STOKLA</button>
+    // SENARYO A: GES ve ALT SEKTÖR VARSA
+    if (industry === 'GES') {
+        if (sub === 'Konstrüksiyon') {
+            fields = `
+                <input id="f_model" type="text" placeholder="Masa Tipi (2V8 vb.)" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="f_kiriş" type="text" placeholder="Kiriş Ölçüsü" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
+                    <input id="f_aşık" type="text" placeholder="Aşık Ölçüsü" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
                 </div>
+                <input id="f_serial" type="text" placeholder="Üretim Seri No" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono italic">
+            `;
+        } else if (sub === 'Panel') {
+            fields = `
+                <input id="f_model" type="text" placeholder="Panel Watt Değeri" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="f_voc" type="text" placeholder="Voc" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs font-mono">
+                    <input id="f_isc" type="text" placeholder="Isc" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs font-mono">
+                </div>
+                <input id="f_serial" type="text" placeholder="Panel Seri No" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono italic">
+            `;
+        } else {
+            // Standart GES (Eğer alt sektör girilmediyse)
+            fields = `
+                <input id="f_model" type="text" placeholder="GES Varlık Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+                <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm">
             `;
         }
+    } 
+    // SENARYO B: MAKİNE (Alt sektör zorunlu değil!)
+    else if (industry === 'Makine') {
+        fields = `
+            <input id="f_model" type="text" placeholder="Pres/Makine Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm font-mono">
+            <div class="grid grid-cols-2 gap-2">
+                <input id="f_cap" type="text" placeholder="Kapasite (Ton)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
+                <input id="f_stroke" type="text" placeholder="Strok (mm)" class="p-4 bg-slate-900 rounded-xl border border-slate-700 text-xs">
+            </div>
+            <input id="f_serial" type="text" placeholder="Fabrika Seri No" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm italic">
+        `;
+    } 
+    // SENARYO C: DİĞER HER ŞEY (Genel Form)
+    else {
+        fields = `
+            <input id="f_model" type="text" placeholder="Cihaz/Varlık Modeli" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm">
+            <input id="f_serial" type="text" placeholder="Seri Numarası" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-700 text-sm italic">
+        `;
+    }
 
-        // ... (saveFactory, renderSiteForm, saveSite ve renderActiveCard fonksiyonları önceki sürümlerle aynı kalsın) ...
+    document.getElementById('status-area').innerHTML = `
+        <div class="bg-sky-500/10 p-3 rounded-xl border border-sky-500/30 mb-4 font-black text-[10px] uppercase text-sky-400 italic">
+            MODÜL: ${sub || industry} VERİ KAYDI
+        </div>
+        <div class="space-y-3 text-left">
+            ${fields}
+            <button onclick="saveFactory('${industry}')" class="w-full bg-sky-600 hover:bg-sky-500 py-4 rounded-xl font-black text-xs uppercase tracking-widest italic border border-sky-400/30 shadow-lg">KAYDI TAMAMLA VE STOKLA</button>
+        </div>
+    `;
+}
+
+        // ... (save	Factory, renderSiteForm, saveSite ve renderActiveCard fonksiyonları önceki sürümlerle aynı kalsın) ...
 
         async function saveFactory(ind) {
             const data = {
